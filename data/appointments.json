@@ -1,0 +1,26 @@
+[
+  {
+    "clientName": "Simone",
+    "clientPhone": "3515774173",
+    "service": "Taglio Capelli",
+    "notes": "ee",
+    "date": "2025-10-25",
+    "startTime": "10:30",
+    "endTime": "11:00",
+    "status": "completed",
+    "id": "1761304856221",
+    "createdAt": "2025-10-24T11:20:56.221Z"
+  },
+  {
+    "clientName": "Matteo  fdffd",
+    "clientPhone": "3485353",
+    "service": "Taglio Capelli",
+    "notes": "sdfsdfsdf",
+    "date": "2025-10-25",
+    "startTime": "09:15",
+    "endTime": "09:45",
+    "status": "completed",
+    "id": "1761310701165",
+    "createdAt": "2025-10-24T12:58:21.165Z"
+  }
+]
