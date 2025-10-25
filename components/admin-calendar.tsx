@@ -414,15 +414,8 @@ export default function AdminCalendar() {
       description: serviceForm.description.trim() || undefined,
     }
 
-    if (serviceForm.id) {
-      if (serviceForm.imgData) {
-        payload.img = serviceForm.imgData
-      }
-    } else {
-      if (!serviceForm.imgData) {
-        toast?.toast({ title: "Immagine obbligatoria", description: "Seleziona una foto per il servizio." })
-        return
-      }
+    // Make image optional: if provided, include it, otherwise allow creation without an image
+    if (serviceForm.imgData) {
       payload.img = serviceForm.imgData
     }
 
@@ -591,54 +584,6 @@ export default function AdminCalendar() {
               </div>
             </div>
 
-            <div className="space-y-4">
-              {servicesLoading ? (
-                <div className="text-sm text-gray-400">Caricamento servizi...</div>
-              ) : servicesList.length ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {servicesList.map((service) => (
-                    <div key={service.id} className="rounded-xl border border-white/10 bg-black/40 p-4 flex flex-col gap-3">
-                      <div className="flex items-start gap-3">
-                        {service.img ? (
-                          <img src={service.img} alt={service.name} className="w-20 h-20 rounded-xl object-cover border border-white/10" />
-                        ) : (
-                          <div className="w-20 h-20 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-xs text-gray-400">
-                            Nessuna foto
-                          </div>
-                        )}
-                        <div className="flex-1 text-left">
-                          <div className="text-lg font-semibold text-white leading-tight">{service.name}</div>
-                          <div className="text-sm text-red-400 mt-1">{formatServicePrice(service.price)}</div>
-                          {service.description && (
-                            <p className="text-xs text-gray-400 mt-2 leading-snug">{service.description}</p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          onClick={() => openServiceForm(service)}
-                          className="flex-1 min-w-[120px] px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm transition-colors"
-                        >
-                          Modifica
-                        </button>
-                        <button
-                          onClick={() => handleServiceDelete(service.id)}
-                          className="flex-1 min-w-[120px] px-3 py-2 bg-red-500/80 hover:bg-red-500 text-sm rounded-lg transition-colors"
-                          disabled={servicesSaving}
-                        >
-                          Elimina
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-sm text-gray-400 bg-black/30 border border-white/10 rounded-xl p-4 text-center">
-                  Nessun servizio disponibile. Aggiungi un servizio per iniziare.
-                </div>
-              )}
-            </div>
-
             {serviceForm && (
               <form onSubmit={handleServiceSubmit} className="bg-black/40 border border-white/10 rounded-2xl p-4 space-y-4">
                 <div className="flex items-center justify-between">
@@ -730,6 +675,54 @@ export default function AdminCalendar() {
                 </div>
               </form>
             )}
+
+            <div className="space-y-4">
+              {servicesLoading ? (
+                <div className="text-sm text-gray-400">Caricamento servizi...</div>
+              ) : servicesList.length ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {servicesList.map((service) => (
+                    <div key={service.id} className="rounded-xl border border-white/10 bg-black/40 p-4 flex flex-col gap-3">
+                      <div className="flex items-start gap-3">
+                        {service.img ? (
+                          <img src={service.img} alt={service.name} className="w-20 h-20 rounded-xl object-cover border border-white/10" />
+                        ) : (
+                          <div className="w-20 h-20 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-xs text-gray-400">
+                            Nessuna foto
+                          </div>
+                        )}
+                        <div className="flex-1 text-left">
+                          <div className="text-lg font-semibold text-white leading-tight">{service.name}</div>
+                          <div className="text-sm text-red-400 mt-1">{formatServicePrice(service.price)}</div>
+                          {service.description && (
+                            <p className="text-xs text-gray-400 mt-2 leading-snug">{service.description}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => openServiceForm(service)}
+                          className="flex-1 min-w-[120px] px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm transition-colors"
+                        >
+                          Modifica
+                        </button>
+                        <button
+                          onClick={() => handleServiceDelete(service.id)}
+                          className="flex-1 min-w-[120px] px-3 py-2 bg-red-500/80 hover:bg-red-500 text-sm rounded-lg transition-colors"
+                          disabled={servicesSaving}
+                        >
+                          Elimina
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-400 bg-black/30 border border-white/10 rounded-xl p-4 text-center">
+                  Nessun servizio disponibile. Aggiungi un servizio per iniziare.
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
