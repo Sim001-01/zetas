@@ -443,7 +443,7 @@ export default function AdminCalendar() {
         {/* Header */}
         <div className="mb-8 animate-fade-in">
           <h1 className="text-3xl md:text-4xl font-bold text-red-500 mb-2">Pannello Amministratore</h1>
-          <p className="text-gray-400">Gestisci gli appuntamenti del barbiere</p>
+          <p className="text-gray-400">Bentornato, Matteo — gestisci gli appuntamenti qui.</p>
         </div>
 
         {/* Calendar Controls */}
