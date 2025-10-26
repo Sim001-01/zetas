@@ -362,7 +362,7 @@ export default function ClientCalendar({ showCalendar = true }: { showCalendar?:
             <div className="mt-6 border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
               <iframe
                 title="Mappa Zeta's Barbershop"
-                src="https://www.google.com/maps?q=SS430%2C%2014%2C%2003043%20San%20Cesario%20FR&output=embed"
+                src="https://www.google.com/maps?q=41.429973689847515,13.898272247814868&z=17&hl=it&output=embed"
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
                 className="w-full h-72 md:h-96"
