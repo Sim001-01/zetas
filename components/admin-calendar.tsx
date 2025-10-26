@@ -23,6 +23,51 @@ import {
 } from "@/lib/services"
 import { useToast } from '@/hooks/use-toast'
 
+const toLocalMidday = (value: Date | string) => {
+  const date = typeof value === "string" ? new Date(value) : new Date(value.getTime())
+  if (Number.isNaN(date.getTime())) {
+    const fallback = new Date()
+    fallback.setHours(12, 0, 0, 0)
+    return fallback
+  }
+  date.setHours(12, 0, 0, 0)
+  return date
+}
+
+const formatDateLocal = (date: Date) => {
+  const normalized = toLocalMidday(date)
+  const year = normalized.getFullYear()
+  const month = (normalized.getMonth() + 1).toString().padStart(2, "0")
+  const day = normalized.getDate().toString().padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+const sanitizeDateString = (value: string) => {
+  if (!value) return value
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
+  return formatDateLocal(toLocalMidday(value))
+}
+
+const buildSlotDate = (date: string, time: string) => {
+  const [hours, minutes] = time.split(":").map(Number)
+  const slot = toLocalMidday(date)
+  slot.setHours(hours, minutes, 0, 0)
+  return slot
+}
+
+const normalizeAppointmentsList = (appointments: Appointment[] = []) => {
+  const deduped = new Map<string, Appointment>()
+  for (const apt of appointments) {
+    const sanitizedDate = sanitizeDateString(apt.date)
+    deduped.set(apt.id, { ...apt, date: sanitizedDate })
+  }
+  return Array.from(deduped.values()).sort((a, b) => {
+    const dateCompare = a.date.localeCompare(b.date)
+    if (dateCompare !== 0) return dateCompare
+    return a.startTime.localeCompare(b.startTime)
+  })
+}
+
 type ServiceFormState = {
   id?: string
   name: string
@@ -34,7 +79,7 @@ type ServiceFormState = {
 
 export default function AdminCalendar() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
-  const [currentDate, setCurrentDate] = useState(new Date())
+  const [currentDate, setCurrentDate] = useState(() => toLocalMidday(new Date()))
   const [showAddModal, setShowAddModal] = useState(false)
   const [selectedSlot, setSelectedSlot] = useState<{ date: string; time: string } | null>(null)
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null)
@@ -54,13 +99,20 @@ export default function AdminCalendar() {
     notes: "",
   })
 
+  const applyAppointments = (list: Appointment[] = []) => {
+    const normalized = normalizeAppointmentsList(list)
+    setAppointments(normalized)
+    return normalized
+  }
+
   useEffect(() => {
     // load local first, then try server
     loadAppointments()
     let mounted = true
     ;(async () => {
       const remote = await fetchAppointmentsRemote()
-      if (mounted && remote && remote.length) setAppointments(remote)
+      if (!mounted) return
+      applyAppointments(remote)
     })()
 
     // start polling for upcoming reminders
@@ -69,12 +121,12 @@ export default function AdminCalendar() {
       try {
         const remote = await fetchAppointmentsRemote()
         if (!mounted) return
-        setAppointments(remote)
+        const normalized = applyAppointments(remote)
         const now = new Date()
-        for (const apt of remote) {
+        for (const apt of normalized) {
           if (notified.has(apt.id)) continue
           // notify if appointment is within next 15 minutes and status is confirmed
-          const aptDate = new Date(`${apt.date}T${apt.startTime}`)
+          const aptDate = buildSlotDate(apt.date, apt.startTime)
           const diff = (aptDate.getTime() - now.getTime()) / 1000 / 60
           if (diff <= 15 && diff >= -5 && (apt.status === 'confirmed' || apt.status === 'pending')) {
             // show toast and beep
@@ -95,7 +147,7 @@ export default function AdminCalendar() {
   }, [])
 
   const loadAppointments = () => {
-    setAppointments(getAppointments())
+    applyAppointments(getAppointments())
   }
 
   const weekDays = ["MAR", "MER", "GIO", "VEN", "SAB"]
@@ -163,12 +215,12 @@ export default function AdminCalendar() {
 
   const getWeekDates = () => {
     const desiredStartDay = 2 // Tuesday
-    const start = new Date(currentDate)
+    const start = toLocalMidday(currentDate)
     const day = start.getDay()
     const diff = desiredStartDay - day
     start.setDate(start.getDate() + diff)
     return Array.from({ length: weekDays.length }, (_, i) => {
-      const date = new Date(start)
+      const date = toLocalMidday(start)
       date.setDate(start.getDate() + i)
       return date
     })
@@ -176,9 +228,7 @@ export default function AdminCalendar() {
 
   const weekDates = getWeekDates()
 
-  const formatDate = (date: Date) => {
-    return date.toISOString().split("T")[0]
-  }
+  const formatDate = (date: Date) => formatDateLocal(date)
 
   const getAppointmentForSlot = (date: Date, time: string) => {
     const dateStr = formatDate(date)
@@ -217,7 +267,7 @@ export default function AdminCalendar() {
       // update remote and refresh using the preserved status
       await updateAppointmentRemote(editingAppointment.id, { ...formData, status: newStatus })
       const remote = await fetchAppointmentsRemote()
-      setAppointments(remote)
+  applyAppointments(remote)
     } else if (selectedSlot) {
       const [hours, minutes] = selectedSlot.time.split(":").map(Number)
       const endMinutes = minutes + 30
@@ -232,7 +282,7 @@ export default function AdminCalendar() {
         status: "confirmed",
       })
       const remote = await fetchAppointmentsRemote()
-      setAppointments(remote)
+      applyAppointments(remote)
     }
     loadAppointments()
     setShowAddModal(false)
@@ -245,7 +295,7 @@ export default function AdminCalendar() {
       // delete remote and refresh
       deleteAppointmentRemote(id).then(async () => {
         const remote = await fetchAppointmentsRemote()
-        setAppointments(remote)
+        applyAppointments(remote)
       })
       // also remove local immediately for snappy UI
       deleteAppointment(id)
@@ -263,7 +313,7 @@ export default function AdminCalendar() {
       await updateAppointmentRemote(id, { status })
       const remote = await fetchAppointmentsRemote()
       if (remote) {
-        setAppointments(remote)
+        applyAppointments(remote)
       }
     } catch (error) {
       if (originalStatus && originalStatus !== status) {
@@ -302,15 +352,19 @@ export default function AdminCalendar() {
   }
 
   const previousWeek = () => {
-    const newDate = new Date(currentDate)
-    newDate.setDate(newDate.getDate() - 7)
-    setCurrentDate(newDate)
+    setCurrentDate((prev) => {
+      const next = toLocalMidday(prev)
+      next.setDate(next.getDate() - 7)
+      return next
+    })
   }
 
   const nextWeek = () => {
-    const newDate = new Date(currentDate)
-    newDate.setDate(newDate.getDate() + 7)
-    setCurrentDate(newDate)
+    setCurrentDate((prev) => {
+      const next = toLocalMidday(prev)
+      next.setDate(next.getDate() + 7)
+      return next
+    })
   }
 
   const refreshServices = async () => {

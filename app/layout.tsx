@@ -7,8 +7,8 @@ import { ToastProvider, ToastViewport } from '@/components/ui/toast'
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Zeta's Barbershop | Prenota il Tuo Appuntamento",
-  description: "Barbiere moderno a Milano. Prenota online il tuo appuntamento per taglio capelli, barba e styling.",
+  title: "Zeta's Barbershop | Barbiere a Cassino",
+  description: "Zeta's Barbershop di Matteo Di Zazzo a Cassino: tagli di capelli moderni, cura della barba e styling su misura.",
     generator: 'v0.app'
 }
 

@@ -133,7 +133,11 @@ export default function ClientCalendar({ showCalendar = true }: { showCalendar?:
   const weekDates = getWeekDates()
 
   const formatDate = (date: Date) => {
-    return date.toISOString().split("T")[0]
+    // format in local time to keep saved dates stable across timezones
+    const year = date.getFullYear()
+    const month = (date.getMonth() + 1).toString().padStart(2, "0")
+    const day = date.getDate().toString().padStart(2, "0")
+    return `${year}-${month}-${day}`
   }
 
   const isSlotAvailable = (date: Date, time: string) => {
@@ -200,6 +204,13 @@ export default function ClientCalendar({ showCalendar = true }: { showCalendar?:
             style={{ animationDelay: "0.2s" }}
           >
             Prenota il tuo appuntamento e scopri l'arte del barbiere moderno
+          </p>
+          <p
+            className="mt-4 text-base md:text-lg text-gray-200 max-w-3xl mx-auto animate-slide-up"
+            style={{ animationDelay: "0.3s" }}
+          >
+            Matteo Di Zazzo è il barbiere di riferimento a Cassino: Zeta's Barbershop unisce tradizione e innovazione per chi cerca
+            Barbiere Cassino, Barbieri Cassino, Cassino Barbieri e servizi premium firmati Matteo Di Zazzo barbiere.
           </p>
         </div>
       </div>

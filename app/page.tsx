@@ -1,18 +1,31 @@
-"use client"
+import type { Metadata } from "next"
 
-import Link from "next/link"
+import ClientCalendar from "@/components/client-calendar"
 
-export default function Home() {
-  return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-900 text-white p-6">
-      <div className="max-w-xl text-center">
-  <h1 className="text-3xl font-bold mb-4">Sito temporaneamente non disponibile.</h1>
-  <p className="mb-6 text-gray-300">Per favore accedi alla pagina amministrativa.</p>
-        <Link href="/admin" className="inline-block rounded-md bg-white text-gray-900 px-4 py-2 font-medium">Vai alla pagina Admin</Link>
-      </div>
-    </main>
-  )
+const baseKeywords = [
+  "Barbiere Cassino",
+  "Barbieri Cassino",
+  "Matteo Di Zazzo barbiere",
+  "Cassino Barbieri",
+  "Taglio capelli Cassino",
+  "Barber shop Cassino",
+]
+
+export const metadata: Metadata = {
+  title: "Zeta's Barbershop Cassino | Matteo Di Zazzo",
+  description:
+    "Zeta's Barbershop di Matteo Di Zazzo a Cassino offre tagli di capelli moderni, cura della barba e servizi premium per ogni stile.",
+  keywords: baseKeywords,
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "Zeta's Barbershop Cassino",
+    description:
+      "Prenota il tuo taglio da Matteo Di Zazzo, barbiere a Cassino specializzato in styling moderno e cura della barba.",
+  },
 }
 
-
-//push
+export default function Home() {
+  return <ClientCalendar showCalendar={false} />
+}
