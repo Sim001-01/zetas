@@ -379,9 +379,24 @@ export default function ClientCalendar({ showCalendar = true }: { showCalendar?:
         Progetto realizzato con cura da{` `}
         <a
           href="https://studiowebdesigner.com"
-          className="text-red-400 hover:text-red-300 transition-colors"
+          className="text-red-400 hover:text-red-300 transition-colors relative z-50 pointer-events-auto"
           target="_blank"
           rel="noopener noreferrer"
+          onClick={(e) => {
+            // defensive: if something intercepts the click, force-open the external site
+            e.stopPropagation()
+            e.preventDefault()
+            window.open('https://studiowebdesigner.com', '_blank', 'noopener,noreferrer')
+          }}
+          role="link"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            // open on Enter or Space for keyboard users
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              window.open('https://studiowebdesigner.com', '_blank', 'noopener,noreferrer')
+            }
+          }}
         >
           StudioWebDesigner
         </a>
