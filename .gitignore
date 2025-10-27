@@ -25,3 +25,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local data generated at runtime
+data/
+!data/.gitkeep
+# allow seeding scripts
+!data/*.example.json

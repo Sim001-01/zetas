@@ -5,7 +5,8 @@ const getBaseUrl = () => {
   if (envUrl) {
     return envUrl.replace(/\/$/, "")
   }
-  return "http://localhost:3000"
+  // Fallback to the production domain when NEXT_PUBLIC_SITE_URL isn't set
+  return "https://zetasbarbershop.it"
 }
 
 export default function robots(): MetadataRoute.Robots {
