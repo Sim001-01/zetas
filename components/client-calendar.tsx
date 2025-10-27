@@ -209,8 +209,10 @@ export default function ClientCalendar({ showCalendar = true }: { showCalendar?:
             className="mt-4 text-base md:text-lg text-gray-200 max-w-3xl mx-auto animate-slide-up"
             style={{ animationDelay: "0.3s" }}
           >
-            Matteo Di Zazzo è il barbiere di riferimento a Cassino: Zeta's Barbershop unisce tradizione e innovazione per chi cerca
-            Barbiere Cassino, Barbieri Cassino, Cassino Barbieri e servizi premium firmati Matteo Di Zazzo barbiere.
+            Matteo Di Zazzo guida Zeta's Barbershop a Cassino con un approccio sartoriale: ogni taglio nasce da una consulenza
+            personalizzata e dall'attenzione ai dettagli di un barbiere che coniuga tecnica moderna, prodotti selezionati e rispetto
+            della tradizione. Se cerchi un Barbiere a Cassino che curi stile, barba e immagine professionale, qui trovi un'esperienza
+            completa pensata per chi desidera il meglio.
           </p>
         </div>
       </div>
@@ -372,6 +374,18 @@ export default function ClientCalendar({ showCalendar = true }: { showCalendar?:
           </div>
         </div>
       </div>
+
+      <footer className="mt-16 py-6 text-center text-sm text-gray-400">
+        Progetto realizzato con cura da{` `}
+        <a
+          href="https://studiowebdesigner.com"
+          className="text-red-400 hover:text-red-300 transition-colors"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          StudioWebDesigner
+        </a>
+      </footer>
 
       {showBookingModal && selectedSlot && (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
