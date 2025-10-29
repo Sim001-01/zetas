@@ -77,6 +77,18 @@ type ServiceFormState = {
   preview: string | null
 }
 
+const SERVICE_PLACEHOLDER_IMAGE = '/placeholder.jpg'
+
+const resolveServiceImage = (value?: string | null) => {
+  if (!value || typeof value !== 'string') return SERVICE_PLACEHOLDER_IMAGE
+  const trimmed = value.trim()
+  if (!trimmed) return SERVICE_PLACEHOLDER_IMAGE
+  if (trimmed.startsWith('data:image/')) return trimmed
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed
+  if (trimmed.startsWith('/')) return trimmed
+  return SERVICE_PLACEHOLDER_IMAGE
+}
+
 export default function AdminCalendar() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [currentDate, setCurrentDate] = useState(() => toLocalMidday(new Date()))
@@ -735,41 +747,45 @@ export default function AdminCalendar() {
                 <div className="text-sm text-gray-400">Caricamento servizi...</div>
               ) : servicesList.length ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {servicesList.map((service) => (
-                    <div key={service.id} className="rounded-xl border border-white/10 bg-black/40 p-4 flex flex-col gap-3">
-                      <div className="flex items-start gap-3">
-                        {service.img ? (
-                          <img src={service.img} alt={service.name} className="w-20 h-20 rounded-xl object-cover border border-white/10" />
-                        ) : (
-                          <div className="w-20 h-20 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-xs text-gray-400">
-                            Nessuna foto
-                          </div>
-                        )}
-                        <div className="flex-1 text-left">
-                          <div className="text-lg font-semibold text-white leading-tight">{service.name}</div>
-                          <div className="text-sm text-red-400 mt-1">{formatServicePrice(service.price)}</div>
-                          {service.description && (
-                            <p className="text-xs text-gray-400 mt-2 leading-snug">{service.description}</p>
+                  {servicesList.map((service) => {
+                    const hasCustomImage = Boolean(service.img && typeof service.img === 'string' && service.img.trim())
+                    const imageSrc = resolveServiceImage(service.img)
+                    return (
+                      <div key={service.id} className="rounded-xl border border-white/10 bg-black/40 p-4 flex flex-col gap-3">
+                        <div className="flex items-start gap-3">
+                          {hasCustomImage ? (
+                            <img src={imageSrc} alt={service.name} className="w-20 h-20 rounded-xl object-cover border border-white/10" />
+                          ) : (
+                            <div className="w-20 h-20 rounded-xl overflow-hidden border border-white/10 bg-white/5 flex items-center justify-center">
+                              <img src={imageSrc} alt="Segnaposto servizio" className="w-full h-full object-cover" />
+                            </div>
                           )}
+                          <div className="flex-1 text-left">
+                            <div className="text-lg font-semibold text-white leading-tight">{service.name}</div>
+                            <div className="text-sm text-red-400 mt-1">{formatServicePrice(service.price)}</div>
+                            {service.description && (
+                              <p className="text-xs text-gray-400 mt-2 leading-snug">{service.description}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={() => openServiceForm(service)}
+                            className="flex-1 min-w-[120px] px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm transition-colors"
+                          >
+                            Modifica
+                          </button>
+                          <button
+                            onClick={() => handleServiceDelete(service.id)}
+                            className="flex-1 min-w-[120px] px-3 py-2 bg-red-500/80 hover:bg-red-500 text-sm rounded-lg transition-colors"
+                            disabled={servicesSaving}
+                          >
+                            Elimina
+                          </button>
                         </div>
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          onClick={() => openServiceForm(service)}
-                          className="flex-1 min-w-[120px] px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm transition-colors"
-                        >
-                          Modifica
-                        </button>
-                        <button
-                          onClick={() => handleServiceDelete(service.id)}
-                          className="flex-1 min-w-[120px] px-3 py-2 bg-red-500/80 hover:bg-red-500 text-sm rounded-lg transition-colors"
-                          disabled={servicesSaving}
-                        >
-                          Elimina
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               ) : (
                 <div className="text-sm text-gray-400 bg-black/30 border border-white/10 rounded-xl p-4 text-center">
