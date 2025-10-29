@@ -89,6 +89,13 @@ const resolveServiceImage = (value?: string | null) => {
   return SERVICE_PLACEHOLDER_IMAGE
 }
 
+const hasCustomServiceImage = (value?: string | null) => {
+  if (!value || typeof value !== 'string') return false
+  const trimmed = value.trim()
+  if (!trimmed) return false
+  return resolveServiceImage(trimmed) !== SERVICE_PLACEHOLDER_IMAGE
+}
+
 export default function AdminCalendar() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [currentDate, setCurrentDate] = useState(() => toLocalMidday(new Date()))
@@ -748,7 +755,7 @@ export default function AdminCalendar() {
               ) : servicesList.length ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {servicesList.map((service) => {
-                    const hasCustomImage = Boolean(service.img && typeof service.img === 'string' && service.img.trim())
+                    const hasCustomImage = hasCustomServiceImage(service.img)
                     const imageSrc = resolveServiceImage(service.img)
                     return (
                       <div key={service.id} className="rounded-xl border border-white/10 bg-black/40 p-4 flex flex-col gap-3">
