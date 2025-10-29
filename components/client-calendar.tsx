@@ -8,6 +8,33 @@ import Image from "next/image"
 import { getAppointments, type Appointment, fetchAppointmentsRemote, createAppointmentRemote } from "@/lib/appointments"
 import InstagramFeed from "./instagram-feed"
 
+const showcaseImages: { src: string; alt: string; caption: string }[] = [
+  {
+    src: "/barbierecassino.jpeg",
+    alt: "Barbiere a Cassino Matteo Di Zazzo in salone",
+    caption: "Matteo Di Zazzo al lavoro nel barbershop di Cassino",
+  },
+  {
+    src: "/matteodizazzobarbierecassino.jpeg",
+    alt: "Dettaglio taglio sfumato da Zeta's Barbershop Cassino",
+    caption: "Dettagli di uno styling sfumato Zeta's Barbershop",
+  },
+  {
+    src: "/zetasbarbershopcassino.jpeg",
+    alt: "Ingresso di Zeta's Barbershop Cassino",
+    caption: "Ingresso dello studio di grooming a Cassino",
+  },
+  {
+    src: "/zetasbarbiere.jpeg",
+    alt: "Postazione lavoro del barbiere Zeta's Cassino",
+    caption: "Postazione professionale del barbiere",
+  },
+]
+
+const allowedImageSet = new Set(showcaseImages.map((image) => image.src))
+
+const getShowcaseImage = (index: number) => showcaseImages[index % showcaseImages.length]?.src ?? showcaseImages[0].src
+
 export default function ClientCalendar({ showCalendar = true }: { showCalendar?: boolean }) {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [currentDate] = useState(new Date())
@@ -59,12 +86,12 @@ export default function ClientCalendar({ showCalendar = true }: { showCalendar?:
     "19:00",
   ]
   const defaultPriceList = [
-    { name: 'Taglio Capelli', price: '€10', img: '/stylish-fade-haircut-barbershop.jpg', desc: 'Taglio tradizionale' },
-    { name: 'Taglio Capelli + Shampoo', price: '€12', img: '/modern-barbershop-haircut-styling.jpg', desc: 'Taglio con shampoo' },
-    { name: 'Taglio Capelli + Barba', price: '€13', img: '/professional-beard-trim-grooming.jpg', desc: 'Taglio capelli con rifinitura barba' },
-    { name: 'Taglio Capelli + Shampoo + Barba', price: '€15', img: '/modern-barbershop-haircut-styling.jpg', desc: 'Pacchetto completo' },
-    { name: 'Solo Shampoo', price: '€4', img: '/professional-shampoo.jpg', desc: 'Solo shampoo' },
-    { name: 'Solo Barba', price: '€5', img: '/professional-beard-trim-grooming.jpg', desc: 'Rifinitura barba' },
+    { name: "Taglio Capelli", price: "€10", img: getShowcaseImage(0), desc: "Taglio tradizionale" },
+    { name: "Taglio Capelli + Shampoo", price: "€12", img: getShowcaseImage(1), desc: "Taglio con shampoo" },
+    { name: "Taglio Capelli + Barba", price: "€13", img: getShowcaseImage(2), desc: "Taglio capelli con rifinitura barba" },
+    { name: "Taglio Capelli + Shampoo + Barba", price: "€15", img: getShowcaseImage(3), desc: "Pacchetto completo" },
+    { name: "Solo Shampoo", price: "€4", img: getShowcaseImage(1), desc: "Solo shampoo" },
+    { name: "Solo Barba", price: "€5", img: getShowcaseImage(2), desc: "Rifinitura barba" },
   ]
 
   const [priceList, setPriceList] = useState(defaultPriceList)
@@ -88,12 +115,13 @@ export default function ClientCalendar({ showCalendar = true }: { showCalendar?:
         if (!mounted) return
         if (remote && remote.length) {
           const mapped = remote.map((r, index) => {
-            const fallbackImg = defaultPriceList[index % defaultPriceList.length]?.img || '/stylish-fade-haircut-barbershop.jpg'
+            const fallbackImg = getShowcaseImage(index)
+            const sanitizedImg = r.img && allowedImageSet.has(r.img) ? r.img : fallbackImg
             return {
               name: r.name,
               price: formatPrice(r.price),
-              img: r.img || fallbackImg,
-              desc: r.description || '',
+              img: sanitizedImg,
+              desc: r.description || "",
             }
           })
           setPriceList(mapped)
@@ -336,6 +364,32 @@ export default function ClientCalendar({ showCalendar = true }: { showCalendar?:
             <Phone className="h-6 w-6 md:h-8 md:w-8 animate-pulse" />
             CHIAMA ORA
           </a>
+          <div className="mt-10">
+            <h3 className="text-2xl md:text-3xl font-bold text-white">Galleria</h3>
+            <p className="text-gray-300 mt-3 text-sm md:text-base max-w-2xl mx-auto">
+              Uno sguardo autenticato dentro Zeta&apos;s Barbershop Cassino: ambiente, dettagli e finiture firmate Matteo Di Zazzo.
+            </p>
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {showcaseImages.map((image) => (
+                <div key={image.src} className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-sm">
+                  <div className="relative aspect-[4/3] w-full">
+                    <Image
+                      src={image.src}
+                      alt={image.alt}
+                      fill
+                      className="object-cover"
+                      sizes="(min-width: 1280px) 25vw, (min-width: 768px) 50vw, 100vw"
+                    />
+                  </div>
+                  <div className="px-4 py-3 text-left">
+                    {/* keep caption in DOM for accessibility and indexing, but visually hidden */}
+                    <span className="sr-only">{image.caption}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Services heading */}
           <div className="mt-10">
             <h3 className="text-2xl md:text-3xl font-bold text-white mb-4">Servizi</h3>
