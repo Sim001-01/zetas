@@ -31,9 +31,8 @@ const showcaseImages: { src: string; alt: string; caption: string }[] = [
   },
 ]
 
-const allowedImageSet = new Set(showcaseImages.map((image) => image.src))
+// gallery images (showcase) are separate from service images
 
-const getShowcaseImage = (index: number) => showcaseImages[index % showcaseImages.length]?.src ?? showcaseImages[0].src
 
 export default function ClientCalendar({ showCalendar = true }: { showCalendar?: boolean }) {
   const [appointments, setAppointments] = useState<Appointment[]>([])
@@ -86,12 +85,12 @@ export default function ClientCalendar({ showCalendar = true }: { showCalendar?:
     "19:00",
   ]
   const defaultPriceList = [
-    { name: "Taglio Capelli", price: "€10", img: getShowcaseImage(0), desc: "Taglio tradizionale" },
-    { name: "Taglio Capelli + Shampoo", price: "€12", img: getShowcaseImage(1), desc: "Taglio con shampoo" },
-    { name: "Taglio Capelli + Barba", price: "€13", img: getShowcaseImage(2), desc: "Taglio capelli con rifinitura barba" },
-    { name: "Taglio Capelli + Shampoo + Barba", price: "€15", img: getShowcaseImage(3), desc: "Pacchetto completo" },
-    { name: "Solo Shampoo", price: "€4", img: getShowcaseImage(1), desc: "Solo shampoo" },
-    { name: "Solo Barba", price: "€5", img: getShowcaseImage(2), desc: "Rifinitura barba" },
+    { name: 'Taglio Capelli', price: '€10', img: '/stylish-fade-haircut-barbershop.jpg', desc: 'Taglio tradizionale' },
+    { name: 'Taglio Capelli + Shampoo', price: '€12', img: '/modern-barbershop-haircut-styling.jpg', desc: 'Taglio con shampoo' },
+    { name: 'Taglio Capelli + Barba', price: '€13', img: '/professional-beard-trim-grooming.jpg', desc: 'Taglio capelli con rifinitura barba' },
+    { name: 'Taglio Capelli + Shampoo + Barba', price: '€15', img: '/modern-barbershop-haircut-styling.jpg', desc: 'Pacchetto completo' },
+    { name: 'Solo Shampoo', price: '€4', img: '/professional-shampoo.jpg', desc: 'Solo shampoo' },
+    { name: 'Solo Barba', price: '€5', img: '/professional-beard-trim-grooming.jpg', desc: 'Rifinitura barba' },
   ]
 
   const [priceList, setPriceList] = useState(defaultPriceList)
@@ -115,12 +114,12 @@ export default function ClientCalendar({ showCalendar = true }: { showCalendar?:
         if (!mounted) return
         if (remote && remote.length) {
           const mapped = remote.map((r, index) => {
-            const fallbackImg = getShowcaseImage(index)
-            const sanitizedImg = r.img && allowedImageSet.has(r.img) ? r.img : fallbackImg
+            const fallbackImg = defaultPriceList[index % defaultPriceList.length]?.img || '/stylish-fade-haircut-barbershop.jpg'
+            const img = r.img || fallbackImg
             return {
               name: r.name,
               price: formatPrice(r.price),
-              img: sanitizedImg,
+              img,
               desc: r.description || "",
             }
           })

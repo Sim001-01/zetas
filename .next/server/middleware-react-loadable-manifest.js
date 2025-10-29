@@ -1,1 +1,0 @@
-self.__REACT_LOADABLE_MANIFEST="{\"components\\\\client-calendar.tsx -> @/lib/services\":{\"id\":\"components\\\\client-calendar.tsx -> @/lib/services\",\"files\":[\"static/chunks/_app-pages-browser_lib_services_ts.js\"]}}"
