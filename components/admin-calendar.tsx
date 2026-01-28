@@ -113,7 +113,6 @@ export default function AdminCalendar() {
 
   const [formData, setFormData] = useState({
     clientName: "",
-    clientPhone: "",
     service: defaultServiceOptions[0],
     notes: "",
   })
@@ -172,8 +171,8 @@ export default function AdminCalendar() {
   const weekDays = ["MAR", "MER", "GIO", "VEN", "SAB"]
   const timeSlots = useMemo(() => {
     const slots: string[] = []
-    const startMinutes = 9 * 60
-    const endMinutes = 20 * 60 + 30
+    const startMinutes = 8 * 60 + 30
+    const endMinutes = 20 * 60 + 45
     for (let minutes = startMinutes; minutes <= endMinutes; minutes += 15) {
       const h = Math.floor(minutes / 60)
       const m = minutes % 60
@@ -260,7 +259,6 @@ export default function AdminCalendar() {
       setEditingAppointment(existing)
       setFormData({
         clientName: existing.clientName,
-        clientPhone: existing.clientPhone,
         service: existing.service,
         notes: existing.notes || "",
       })
@@ -269,7 +267,7 @@ export default function AdminCalendar() {
       setSelectedSlot({ date: formatDate(date), time })
       setEditingAppointment(null)
       const defaultService = serviceOptions[0] ?? defaultServiceOptions[0]
-      setFormData({ clientName: "", clientPhone: "", service: defaultService, notes: "" })
+        setFormData({ clientName: "", service: defaultService, notes: "" })
       setShowAddModal(true)
     }
   }
@@ -598,9 +596,7 @@ export default function AdminCalendar() {
                         >
                           <div className="font-semibold truncate text-white">{appointment.clientName}</div>
                           <div className="text-gray-300 truncate">{appointment.service}</div>
-                          <div className="text-gray-400 text-[8px] md:text-[10px] mt-0.5 md:mt-1 truncate">
-                            {appointment.clientPhone}
-                          </div>
+                          {/* telefono nascosto nella vista admin */}
                         </div>
                       )}
                     </div>
@@ -829,16 +825,7 @@ export default function AdminCalendar() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">Telefono</label>
-                <input
-                  type="tel"
-                  required
-                  value={formData.clientPhone}
-                  onChange={(e) => setFormData({ ...formData, clientPhone: e.target.value })}
-                  className="w-full bg-black border border-zinc-700 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
-                />
-              </div>
+              {/* Campo telefono rimosso dall'interfaccia admin */}
 
               <div>
                 <label className="block text-sm font-medium mb-2">Servizio</label>
