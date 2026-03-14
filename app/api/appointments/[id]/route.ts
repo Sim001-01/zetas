@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { broadcastAppointmentEvent } from '@/lib/appointments-events'
 
 export const runtime = 'nodejs'
 
@@ -52,6 +53,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       [idNumber],
     )
     const row = updatedRows[0]
+    broadcastAppointmentEvent({ type: 'updated', id: row.id?.toString?.() })
     return NextResponse.json({
       id: row.id.toString(),
       clientName: row.client_name,
@@ -83,6 +85,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
 
   try {
     await query('DELETE FROM appointments WHERE id = ?', [idNumber])
+    broadcastAppointmentEvent({ type: 'deleted', id: idNumber.toString() })
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('API Error /appointments DELETE:', error)

@@ -132,6 +132,11 @@ export default function AdminCalendar() {
     return normalized
   }
 
+  const refreshAppointments = async () => {
+    const remote = await fetchAppointmentsRemote()
+    applyAppointments(remote)
+  }
+
   useEffect(() => {
     // load local first, then try server
     loadAppointments()
@@ -143,6 +148,13 @@ export default function AdminCalendar() {
       if (settingsData) setSettings(settingsData)
       applyAppointments(remote)
     })()
+
+    const source = new EventSource('/api/appointments/stream')
+    const handleUpdate = () => {
+      refreshAppointments().catch(() => null)
+    }
+    source.addEventListener('update', handleUpdate)
+    source.addEventListener('ready', handleUpdate)
 
     // start polling for upcoming reminders
     const notified = new Set<string>()
@@ -173,6 +185,9 @@ export default function AdminCalendar() {
     return () => {
       mounted = false
       clearInterval(interval)
+      source.removeEventListener('update', handleUpdate)
+      source.removeEventListener('ready', handleUpdate)
+      source.close()
     }
   }, [])
 

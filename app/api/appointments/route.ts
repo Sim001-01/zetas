@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { broadcastAppointmentEvent } from '@/lib/appointments-events'
 
 export const runtime = 'nodejs'
 
@@ -83,6 +84,7 @@ export async function POST(request: Request) {
     )
 
     const row = inserted[0]
+    broadcastAppointmentEvent({ type: 'created', id: row.id?.toString?.() })
     return NextResponse.json(
       {
         id: row.id.toString(),

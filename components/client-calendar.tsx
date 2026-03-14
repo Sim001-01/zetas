@@ -61,7 +61,20 @@ export default function ClientCalendar({ showCalendar = true, minimal = false }:
 
     // Polling every 30 seconds
     const interval = setInterval(loadData, 30000)
-    return () => clearInterval(interval)
+
+    const source = new EventSource('/api/appointments/stream')
+    const handleUpdate = () => {
+      loadData()
+    }
+    source.addEventListener('update', handleUpdate)
+    source.addEventListener('ready', handleUpdate)
+
+    return () => {
+      clearInterval(interval)
+      source.removeEventListener('update', handleUpdate)
+      source.removeEventListener('ready', handleUpdate)
+      source.close()
+    }
   }, [])
 
   const loadData = async () => {
