@@ -1,7 +1,9 @@
 export interface Appointment {
   id: string
   clientName: string
+  clientSurname?: string
   clientPhone: string
+  clientEmail?: string
   date: string
   startTime: string
   endTime: string
@@ -81,6 +83,11 @@ export async function createAppointmentRemote(appointment: Omit<Appointment, 'id
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(appointment),
     })
+    if (res.status === 409) {
+      const conflictError = new Error('Slot already booked') as Error & { code?: string }
+      conflictError.code = 'SLOT_TAKEN'
+      throw conflictError
+    }
     if (!res.ok) throw new Error('Failed to create')
     const created = await res.json() as Appointment
     // update local cache
@@ -93,7 +100,10 @@ export async function createAppointmentRemote(appointment: Omit<Appointment, 'id
       }
     } catch (e) {}
     return created
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.code === 'SLOT_TAKEN') {
+      throw err
+    }
     // fallback to local add
     return addAppointment(appointment)
   }
@@ -106,6 +116,11 @@ export async function updateAppointmentRemote(id: string, updates: Partial<Appoi
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates),
     })
+    if (res.status === 409) {
+      const conflictError = new Error('Slot already booked') as Error & { code?: string }
+      conflictError.code = 'SLOT_TAKEN'
+      throw conflictError
+    }
     if (!res.ok) throw new Error('Failed to update')
     // update local cache
     try {
@@ -116,7 +131,10 @@ export async function updateAppointmentRemote(id: string, updates: Partial<Appoi
         saveAppointments(list)
       }
     } catch (e) {}
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.code === 'SLOT_TAKEN') {
+      throw err
+    }
     // fallback to local update
     updateAppointment(id, updates)
   }

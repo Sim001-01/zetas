@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server'
-import fs from 'fs'
-import path from 'path'
+import { query } from '@/lib/db'
 
-const DATA_PATH = path.join(process.cwd(), 'data', 'services.json')
 export const runtime = 'nodejs'
 
 const isDataUrl = (value: unknown): value is string =>
@@ -27,33 +25,58 @@ const normalizeImageValue = (incoming: unknown, existing?: string | null): strin
   return existing ?? null
 }
 
-function ensureDataFile() {
-  const dir = path.dirname(DATA_PATH)
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-  if (!fs.existsSync(DATA_PATH)) fs.writeFileSync(DATA_PATH, '[]')
-}
+const serializeService = (service: any) => ({
+  id: service.id.toString(),
+  name: service.name,
+  duration_minutes: service.duration_minutes,
+  description: service.description ?? null,
+  price: service.price !== null && service.price !== undefined ? Number(service.price) : null,
+  img: service.img ?? null,
+  created_at: service.created_at instanceof Date ? service.created_at.toISOString() : service.created_at,
+})
 
 export async function GET() {
-  ensureDataFile()
-  const raw = fs.readFileSync(DATA_PATH, 'utf-8')
-  const data = JSON.parse(raw || '[]')
-  return NextResponse.json(data)
+  const rows = await query<any>(
+    `SELECT id, name, duration_minutes, description, price, img, created_at
+     FROM services
+     ORDER BY name ASC`,
+  )
+  return NextResponse.json(rows.map(serializeService))
 }
 
 export async function POST(request: Request) {
-  ensureDataFile()
   const body = await request.json()
-  const { img: incomingImg, ...rest } = body ?? {}
-  const services = JSON.parse(fs.readFileSync(DATA_PATH, 'utf-8') || '[]')
-  const id = `svc-${Date.now()}`
+  const { img: incomingImg, duration_minutes, durationMinutes, ...rest } = body ?? {}
   const imageValue = normalizeImageValue(incomingImg)
-  const newSvc = {
-    id,
-    ...rest,
-    img: imageValue,
-    created_at: new Date().toISOString(),
+  const trimmedName = typeof rest?.name === 'string' ? rest.name.trim() : ''
+  if (!trimmedName) {
+    return NextResponse.json({ error: 'Missing name' }, { status: 400 })
   }
-  services.push(newSvc)
-  fs.writeFileSync(DATA_PATH, JSON.stringify(services, null, 2))
-  return NextResponse.json(newSvc, { status: 201 })
+  const priceValue = rest?.price === undefined || rest?.price === null ? null : Number(rest.price)
+  if (priceValue !== null && Number.isNaN(priceValue)) {
+    return NextResponse.json({ error: 'Invalid price' }, { status: 400 })
+  }
+
+  try {
+    await query(
+      `INSERT INTO services (name, duration_minutes, description, price, img)
+       VALUES (?, ?, ?, ?, ?)`,
+      [trimmedName, durationMinutes ?? duration_minutes ?? 30, rest?.description ?? null, priceValue, imageValue],
+    )
+    const rows = await query<any>(
+      `SELECT id, name, duration_minutes, description, price, img, created_at
+       FROM services
+       WHERE name = ?
+       ORDER BY id DESC
+       LIMIT 1`,
+      [trimmedName],
+    )
+    return NextResponse.json(serializeService(rows[0]), { status: 201 })
+  } catch (error: any) {
+    if (error?.code === 'ER_DUP_ENTRY') {
+      return NextResponse.json({ error: 'Service name already exists' }, { status: 409 })
+    }
+    console.error('API Error /services POST:', error)
+    return NextResponse.json({ error: 'Failed to create' }, { status: 500 })
+  }
 }

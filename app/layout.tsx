@@ -25,7 +25,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <ToastProvider>
           {children}
-          <ToastViewport />
+          <ToastViewport label="Notifiche" />
         </ToastProvider>
       </body>
     </html>

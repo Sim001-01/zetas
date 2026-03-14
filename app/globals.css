@@ -58,6 +58,8 @@
   content: "";
   position: absolute;
   inset: 0;
+  pointer-events: none;
+  z-index: 0;
   background-image: repeating-linear-gradient(
       0deg,
       transparent,
@@ -89,6 +91,8 @@
   right: -20%;
   width: 150%;
   height: 200%;
+  pointer-events: none;
+  z-index: 0;
   background: linear-gradient(
     135deg,
     transparent 30%,

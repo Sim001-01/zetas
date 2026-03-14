@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect, useMemo, useRef } from "react"
-import { ChevronLeft, ChevronRight, X, Check, Trash2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, X, Check, Trash2, Settings as SettingsIcon } from "lucide-react"
 import {
   getAppointments,
   updateAppointment,
@@ -14,6 +14,8 @@ import {
   updateAppointmentRemote,
   deleteAppointmentRemote,
 } from "@/lib/appointments"
+import { fetchSettings, type Settings } from "@/lib/settings"
+import AdminSettings from "@/components/admin-settings"
 import {
   fetchServicesRemote,
   createServiceRemote,
@@ -99,9 +101,13 @@ const hasCustomServiceImage = (value?: string | null) => {
 export default function AdminCalendar() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [currentDate, setCurrentDate] = useState(() => toLocalMidday(new Date()))
+  const [weekOffset, setWeekOffset] = useState(0)
   const [showAddModal, setShowAddModal] = useState(false)
   const [selectedSlot, setSelectedSlot] = useState<{ date: string; time: string } | null>(null)
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null)
+  const [settings, setSettings] = useState<Settings | null>(null)
+  const [showSettings, setShowSettings] = useState(false)
+
   const defaultServiceOptions = [
     "Taglio Capelli",
     "Taglio Capelli + Shampoo",
@@ -113,6 +119,8 @@ export default function AdminCalendar() {
 
   const [formData, setFormData] = useState({
     clientName: "",
+    clientSurname: "",
+    clientEmail: "",
     service: defaultServiceOptions[0],
     notes: "",
   })
@@ -129,7 +137,9 @@ export default function AdminCalendar() {
     let mounted = true
     ;(async () => {
       const remote = await fetchAppointmentsRemote()
+      const settingsData = await fetchSettings().catch(() => null)
       if (!mounted) return
+      if (settingsData) setSettings(settingsData)
       applyAppointments(remote)
     })()
 
@@ -138,6 +148,7 @@ export default function AdminCalendar() {
     const interval = setInterval(async () => {
       try {
         const remote = await fetchAppointmentsRemote()
+        // Optional: refresh settings too? Maybe not every 30s.
         if (!mounted) return
         const normalized = applyAppointments(remote)
         const now = new Date()
@@ -168,18 +179,35 @@ export default function AdminCalendar() {
     applyAppointments(getAppointments())
   }
 
-  const weekDays = ["MAR", "MER", "GIO", "VEN", "SAB"]
+  const weekDays = ["LUN", "MAR", "MER", "GIO", "VEN", "SAB", "DOM"]
   const timeSlots = useMemo(() => {
+    // If settings are loaded, use them
+    if (settings) {
+      const { start, end, interval } = settings.timeSlots
+      const slots: string[] = []
+      let current = new Date(`2000-01-01T${start}`)
+      const endTime = new Date(`2000-01-01T${end}`)
+      
+      while (current <= endTime) {
+        const hours = current.getHours().toString().padStart(2, '0')
+        const minutes = current.getMinutes().toString().padStart(2, '0')
+        slots.push(`${hours}:${minutes}`)
+        current.setMinutes(current.getMinutes() + interval)
+      }
+      return slots
+    }
+
+    // Default fallback
     const slots: string[] = []
-    const startMinutes = 8 * 60 + 30
-    const endMinutes = 20 * 60 + 45
-    for (let minutes = startMinutes; minutes <= endMinutes; minutes += 15) {
+    const startMinutes = 9 * 60 // 9:00 default
+    const endMinutes = 20 * 60 + 30   // 20:30 default
+    for (let minutes = startMinutes; minutes <= endMinutes; minutes += 30) {
       const h = Math.floor(minutes / 60)
       const m = minutes % 60
       slots.push(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`)
     }
     return slots
-  }, [])
+  }, [settings])
 
   const [serviceOptions, setServiceOptions] = useState<string[]>(defaultServiceOptions)
   const [servicesList, setServicesList] = useState<Service[]>([])
@@ -232,12 +260,13 @@ export default function AdminCalendar() {
   }, [serviceOptions])
 
   const getWeekDates = () => {
-    const desiredStartDay = 2 // Tuesday
+    // Start from Monday of the current week
     const start = toLocalMidday(currentDate)
-    const day = start.getDay()
-    const diff = desiredStartDay - day
+    const day = start.getDay() // 0=Sun, 1=Mon
+    const diff = day === 0 ? -6 : 1 - day // if Sun(0) -> -6 (last Mon), if Mon(1) -> 0, if Tue(2) -> -1
     start.setDate(start.getDate() + diff)
-    return Array.from({ length: weekDays.length }, (_, i) => {
+    
+    return Array.from({ length: 7 }, (_, i) => {
       const date = toLocalMidday(start)
       date.setDate(start.getDate() + i)
       return date
@@ -259,6 +288,8 @@ export default function AdminCalendar() {
       setEditingAppointment(existing)
       setFormData({
         clientName: existing.clientName,
+        clientSurname: existing.clientSurname || "",
+        clientEmail: existing.clientEmail || "",
         service: existing.service,
         notes: existing.notes || "",
       })
@@ -267,7 +298,13 @@ export default function AdminCalendar() {
       setSelectedSlot({ date: formatDate(date), time })
       setEditingAppointment(null)
       const defaultService = serviceOptions[0] ?? defaultServiceOptions[0]
-        setFormData({ clientName: "", service: defaultService, notes: "" })
+      setFormData({ 
+        clientName: "", 
+        clientSurname: "",
+        clientEmail: "",
+        service: defaultService, 
+        notes: "" 
+      })
       setShowAddModal(true)
     }
   }
@@ -282,24 +319,42 @@ export default function AdminCalendar() {
         status: newStatus,
       })
       // update remote and refresh using the preserved status
-      await updateAppointmentRemote(editingAppointment.id, { ...formData, status: newStatus })
-      const remote = await fetchAppointmentsRemote()
-  applyAppointments(remote)
+      try {
+        await updateAppointmentRemote(editingAppointment.id, { ...formData, status: newStatus })
+        const remote = await fetchAppointmentsRemote()
+        applyAppointments(remote)
+      } catch (error: any) {
+        if (error?.code === 'SLOT_TAKEN') {
+          toast?.toast({ title: 'Slot occupato', description: 'Questo orario e\' gia prenotato.' })
+          return
+        }
+        toast?.toast({ title: 'Aggiornamento non riuscito', description: 'Riprova tra poco.' })
+        return
+      }
     } else if (selectedSlot) {
       const [hours, minutes] = selectedSlot.time.split(":").map(Number)
       const endMinutes = minutes + 30
       const endHours = hours + Math.floor(endMinutes / 60)
       const endTime = `${endHours.toString().padStart(2, "0")}:${(endMinutes % 60).toString().padStart(2, "0")}`
       // create remote (preferred) and refresh
-      await createAppointmentRemote({
-        ...formData,
-        date: selectedSlot.date,
-        startTime: selectedSlot.time,
-        endTime,
-        status: "confirmed",
-      })
-      const remote = await fetchAppointmentsRemote()
-      applyAppointments(remote)
+      try {
+        await createAppointmentRemote({
+          ...formData,
+          date: selectedSlot.date,
+          startTime: selectedSlot.time,
+          endTime,
+          status: "confirmed",
+        })
+        const remote = await fetchAppointmentsRemote()
+        applyAppointments(remote)
+      } catch (error: any) {
+        if (error?.code === 'SLOT_TAKEN') {
+          toast?.toast({ title: 'Slot occupato', description: 'Questo orario e\' gia prenotato.' })
+          return
+        }
+        toast?.toast({ title: 'Creazione non riuscita', description: 'Riprova tra poco.' })
+        return
+      }
     }
     loadAppointments()
     setShowAddModal(false)
@@ -369,19 +424,26 @@ export default function AdminCalendar() {
   }
 
   const previousWeek = () => {
-    setCurrentDate((prev) => {
-      const next = toLocalMidday(prev)
-      next.setDate(next.getDate() - 7)
-      return next
-    })
+    const nextOffset = weekOffset - 1
+    setWeekOffset(nextOffset)
+    const next = toLocalMidday(new Date())
+    next.setDate(next.getDate() + nextOffset * 7)
+    setCurrentDate(next)
   }
 
   const nextWeek = () => {
-    setCurrentDate((prev) => {
-      const next = toLocalMidday(prev)
-      next.setDate(next.getDate() + 7)
-      return next
-    })
+    const nextOffset = weekOffset + 1
+    setWeekOffset(nextOffset)
+    const next = toLocalMidday(new Date())
+    next.setDate(next.getDate() + nextOffset * 7)
+    setCurrentDate(next)
+  }
+
+  const setWeekFromOffset = (offset: number) => {
+    setWeekOffset(offset)
+    const next = toLocalMidday(new Date())
+    next.setDate(next.getDate() + offset * 7)
+    setCurrentDate(next)
   }
 
   const refreshServices = async () => {
@@ -530,10 +592,37 @@ export default function AdminCalendar() {
               <ChevronRight className="h-5 w-5" />
             </button>
           </div>
-          <div className="mt-3 md:mt-0">
+          <div className="mt-3 md:mt-0 flex gap-2">
             <button onClick={() => setShowServicesModal(true)} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors">
               Gestisci Servizi
             </button>
+            <button onClick={() => setShowSettings(true)} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors flex items-center gap-2">
+              <SettingsIcon className="h-4 w-4" />
+              Impostazioni
+            </button>
+          </div>
+        </div>
+
+        <div className="mb-6 animate-slide-up">
+          <div className="flex flex-col md:flex-row md:items-center gap-3">
+            <div className="text-sm text-gray-400">Scorri settimane</div>
+            <input
+              type="range"
+              min={-12}
+              max={12}
+              value={weekOffset}
+              onChange={(e) => setWeekFromOffset(Number(e.target.value))}
+              className="w-full md:max-w-md"
+            />
+            <button
+              onClick={() => setWeekFromOffset(0)}
+              className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-sm"
+            >
+              Oggi
+            </button>
+            <div className="text-sm text-gray-300">
+              {weekOffset === 0 ? "Settimana corrente" : `Settimana ${weekOffset > 0 ? "+" : ""}${weekOffset}`}
+            </div>
           </div>
         </div>
 
@@ -543,7 +632,7 @@ export default function AdminCalendar() {
           style={{ animationDelay: "0.1s" }}
         >
           {/* Week Header */}
-          <div className="grid grid-cols-7 border-b border-white/10 bg-black/20">
+          <div className="grid grid-cols-8 border-b border-white/10 bg-black/20">
             <div className="p-2 md:p-3 text-center text-gray-500 text-xs md:text-sm"></div>
             {weekDays.map((day, i) => (
               <div key={i} className="p-2 md:p-3 text-center border-l border-white/10">
@@ -558,7 +647,7 @@ export default function AdminCalendar() {
           </div>
 
           {/* Time Grid */}
-          <div className="grid grid-cols-7 overflow-x-auto max-h-[600px] md:max-h-none overflow-y-auto">
+          <div className="grid grid-cols-8 overflow-x-auto max-h-[600px] md:max-h-none overflow-y-auto">
             <div className="text-gray-400 bg-black/20 sticky left-0 z-10">
               {timeSlots.map((time, i) => (
                 <div
@@ -594,7 +683,9 @@ export default function AdminCalendar() {
                                   : "bg-gray-500/20 border-l-4 border-gray-500"
                           }`}
                         >
-                          <div className="font-semibold truncate text-white">{appointment.clientName}</div>
+                          <div className="font-semibold truncate text-white">
+                            {`${appointment.clientName} ${appointment.clientSurname ?? ""}`.trim()}
+                          </div>
                           <div className="text-gray-300 truncate">{appointment.service}</div>
                           {/* telefono nascosto nella vista admin */}
                         </div>
@@ -814,13 +905,35 @@ export default function AdminCalendar() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Nome</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.clientName}
+                    onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
+                    className="w-full bg-black border border-zinc-700 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Cognome</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.clientSurname}
+                    onChange={(e) => setFormData({ ...formData, clientSurname: e.target.value })}
+                    className="w-full bg-black border border-zinc-700 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="block text-sm font-medium mb-2">Nome Cliente</label>
+                <label className="block text-sm font-medium mb-2">Email</label>
                 <input
-                  type="text"
-                  required
-                  value={formData.clientName}
-                  onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
+                  type="email"
+                  value={formData.clientEmail}
+                  onChange={(e) => setFormData({ ...formData, clientEmail: e.target.value })}
                   className="w-full bg-black border border-zinc-700 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
                 />
               </div>
@@ -915,6 +1028,8 @@ export default function AdminCalendar() {
           </div>
         </div>
       )}
+
+      {showSettings && <AdminSettings onClose={() => setShowSettings(false)} />}
     </div>
   )
 }

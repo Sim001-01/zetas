@@ -1,32 +1,93 @@
 import { NextResponse } from 'next/server'
-import fs from 'fs'
-import path from 'path'
+import { query } from '@/lib/db'
 
-const DATA_PATH = path.join(process.cwd(), 'data', 'appointments.json')
-
-function ensureDataFile() {
-  const dir = path.dirname(DATA_PATH)
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-  if (!fs.existsSync(DATA_PATH)) fs.writeFileSync(DATA_PATH, '[]')
-}
+export const runtime = 'nodejs'
 
 export async function GET() {
-  ensureDataFile()
-  const raw = fs.readFileSync(DATA_PATH, 'utf-8')
-  const data = JSON.parse(raw || '[]')
+  const rows = await query<any>(
+    `SELECT id, client_name, client_surname, client_phone, client_email, date, start_time, end_time, service, status, notes, created_at
+     FROM appointments
+     ORDER BY date ASC, start_time ASC`,
+  )
+
+  const data = rows.map((row) => ({
+    id: row.id.toString(),
+    clientName: row.client_name,
+    clientSurname: row.client_surname ?? null,
+    clientPhone: row.client_phone,
+    clientEmail: row.client_email ?? null,
+    date: row.date instanceof Date ? row.date.toISOString().slice(0, 10) : row.date,
+    startTime: row.start_time,
+    endTime: row.end_time,
+    service: row.service,
+    status: row.status,
+    notes: row.notes ?? null,
+    createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+  }))
+
   return NextResponse.json(data)
 }
 
 export async function POST(request: Request) {
-  ensureDataFile()
   const body = await request.json()
-  const appointments = JSON.parse(fs.readFileSync(DATA_PATH, 'utf-8') || '[]')
-  const newApt = {
-    ...body,
-    id: Date.now().toString(),
-    createdAt: new Date().toISOString(),
+
+  if (!body?.date || !body?.startTime || !body?.clientName || !body?.clientPhone || !body?.service) {
+    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
-  appointments.push(newApt)
-  fs.writeFileSync(DATA_PATH, JSON.stringify(appointments, null, 2))
-  return NextResponse.json(newApt, { status: 201 })
+
+  try {
+    const params = [
+      body.clientName,
+      body.clientSurname ?? null,
+      body.clientPhone,
+      body.clientEmail ?? null,
+      body.date,
+      body.startTime,
+      body.endTime ?? body.startTime,
+      body.service,
+      body.status ?? 'pending',
+      body.notes ?? null,
+    ]
+
+    await query(
+      `INSERT INTO appointments
+        (client_name, client_surname, client_phone, client_email, date, start_time, end_time, service, status, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      params,
+    )
+
+    const inserted = await query<any>(
+      `SELECT id, client_name, client_surname, client_phone, client_email, date, start_time, end_time, service, status, notes, created_at
+       FROM appointments
+       WHERE date = ? AND start_time = ?
+       ORDER BY id DESC
+       LIMIT 1`,
+      [body.date, body.startTime],
+    )
+
+    const row = inserted[0]
+    return NextResponse.json(
+      {
+        id: row.id.toString(),
+        clientName: row.client_name,
+        clientSurname: row.client_surname ?? null,
+        clientPhone: row.client_phone,
+        clientEmail: row.client_email ?? null,
+        date: row.date instanceof Date ? row.date.toISOString().slice(0, 10) : row.date,
+        startTime: row.start_time,
+        endTime: row.end_time,
+        service: row.service,
+        status: row.status,
+        notes: row.notes ?? null,
+        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+      },
+      { status: 201 },
+    )
+  } catch (error: any) {
+    if (error?.code === 'ER_DUP_ENTRY') {
+      return NextResponse.json({ error: 'Slot already booked' }, { status: 409 })
+    }
+    console.error('API Error /appointments POST:', error)
+    return NextResponse.json({ error: 'Failed to create' }, { status: 500 })
+  }
 }

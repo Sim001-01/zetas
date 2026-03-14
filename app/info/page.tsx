@@ -38,6 +38,10 @@ export default function InfoPage() {
         <p className="mb-8 text-sm text-red-200">Link rapidi e contatti</p>
 
         <div className="flex flex-col gap-4">
+          <Button asChild size="lg" className="bg-red-600 text-white hover:bg-red-700">
+            <Link href="/prenotazioni">Prenota Ora</Link>
+          </Button>
+
           <Button asChild size="lg" className="bg-white text-black hover:opacity-95">
             <a href={sitoUrl} target="_blank" rel="noopener noreferrer">
               Visita Sito Web

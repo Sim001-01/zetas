@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS services (
 	duration_minutes INT NOT NULL DEFAULT 30,
 	description TEXT,
 	price DECIMAL(8,2),
+	img TEXT,
 	created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 	UNIQUE KEY uniq_service_name (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -28,6 +29,11 @@ CREATE TABLE IF NOT EXISTS appointments (
 	id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
 	client_id BIGINT NULL,
 	service_id BIGINT NULL,
+	client_name VARCHAR(255) NOT NULL,
+	client_surname VARCHAR(255),
+	client_phone VARCHAR(32) NOT NULL,
+	client_email VARCHAR(255),
+	service VARCHAR(255) NOT NULL,
 	date DATE NOT NULL,
 	start_time TIME NOT NULL,
 	end_time TIME NOT NULL,
@@ -40,6 +46,18 @@ CREATE TABLE IF NOT EXISTS appointments (
 
 CREATE INDEX idx_appointments_date ON appointments (date);
 CREATE INDEX idx_appointments_client ON appointments (client_id);
+CREATE UNIQUE INDEX uniq_appointments_slot ON appointments (date, start_time);
+
+-- Settings table for opening days and time slots
+CREATE TABLE IF NOT EXISTS settings (
+  id INT NOT NULL PRIMARY KEY,
+  opening_days JSON NOT NULL,
+  time_slots JSON NOT NULL,
+  closed_days JSON NOT NULL,
+  open_dates JSON NOT NULL,
+  closed_dates JSON NOT NULL,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Admins table for administrator accounts (store hashed passwords)
 CREATE TABLE IF NOT EXISTS admins (
