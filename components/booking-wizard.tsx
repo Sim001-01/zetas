@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Calendar } from "@/components/ui/calendar"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -17,6 +17,66 @@ import { ArrowLeft, ArrowRight, Calendar as CalendarIcon, Clock, User, Check, Lo
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { it } from "date-fns/locale"
+
+
+const BUSINESS_SLOT_MINUTES = 15
+
+const BUSINESS_WINDOWS_BY_DAY: Record<number, Array<{ start: string; end: string }>> = {
+  2: [ // Tuesday
+    { start: "09:00", end: "12:45" },
+    { start: "15:30", end: "20:15" },
+  ],
+  3: [ // Wednesday
+    { start: "09:00", end: "12:45" },
+    { start: "15:30", end: "20:15" },
+  ],
+  4: [ // Thursday
+    { start: "09:00", end: "12:45" },
+    { start: "15:30", end: "20:15" },
+  ],
+  5: [ // Friday
+    { start: "09:00", end: "13:00" },
+    { start: "15:00", end: "20:15" },
+  ],
+  6: [ // Saturday
+    { start: "08:30", end: "20:00" },
+  ],
+}
+
+const toMinutes = (time: string) => {
+  const [h, m] = time.split(":").map(Number)
+  return h * 60 + m
+}
+
+const formatMinutes = (value: number) => {
+  const hh = Math.floor(value / 60).toString().padStart(2, "0")
+  const mm = (value % 60).toString().padStart(2, "0")
+  return `${hh}:${mm}`
+}
+
+const getBusinessSlotsForDay = (dayOfWeek: number) => {
+  const windows = BUSINESS_WINDOWS_BY_DAY[dayOfWeek] || []
+  const slots: string[] = []
+  for (const window of windows) {
+    const start = toMinutes(window.start)
+    const end = toMinutes(window.end)
+    for (let minute = start; minute <= end; minute += BUSINESS_SLOT_MINUTES) {
+      slots.push(formatMinutes(minute))
+    }
+  }
+  return slots
+}
+
+const isBusinessSlotForDay = (dayOfWeek: number, time: string) => {
+  const minute = toMinutes(time)
+  const windows = BUSINESS_WINDOWS_BY_DAY[dayOfWeek] || []
+  return windows.some((window) => {
+    const start = toMinutes(window.start)
+    const end = toMinutes(window.end)
+    if (minute < start || minute > end) return false
+    return (minute - start) % BUSINESS_SLOT_MINUTES === 0
+  })
+}
 
 const defaultServices = [
   "Taglio Capelli",
@@ -55,14 +115,31 @@ export default function BookingWizard() {
     notes: ""
   })
 
+  const mountedRef = useRef(true)
+  const syncInFlightRef = useRef(false)
+  const stepRef = useRef(step)
+  const submittingRef = useRef(submitting)
+
+  useEffect(() => {
+    stepRef.current = step
+  }, [step])
+
+  useEffect(() => {
+    submittingRef.current = submitting
+  }, [submitting])
+
   // Load Data
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
+    if (syncInFlightRef.current) return
+    syncInFlightRef.current = true
     try {
       const [remoteApts, settingsData, remoteServices] = await Promise.all([
         fetchAppointmentsRemote(),
         fetchSettings().catch(() => null),
         fetchServicesRemote().catch(() => [])
       ])
+
+      if (!mountedRef.current) return
 
       if (remoteApts) {
         setAppointments(remoteApts.filter((a) => a.status === 'confirmed' || a.status === 'pending'))
@@ -79,30 +156,48 @@ export default function BookingWizard() {
     } catch (e) {
       console.error("Error loading data", e)
     } finally {
-      setLoading(false)
+      syncInFlightRef.current = false
+      if (mountedRef.current) {
+        setLoading(false)
+      }
     }
-  }
+  }, [])
 
   useEffect(() => {
-    loadData()
-    const interval = setInterval(() => {
-      loadData()
-    }, 30000)
+    mountedRef.current = true
+    void loadData()
+
+    const refreshIfIdle = () => {
+      if (submittingRef.current) return
+      if (stepRef.current !== 1) return
+      void loadData()
+    }
+
+    const interval = setInterval(refreshIfIdle, 5000)
 
     const source = new EventSource('/api/appointments/stream')
     const handleUpdate = () => {
-      loadData()
+      refreshIfIdle()
     }
     source.addEventListener('update', handleUpdate)
     source.addEventListener('ready', handleUpdate)
 
+    const handleVisibilitySync = () => {
+      refreshIfIdle()
+    }
+    window.addEventListener('focus', handleVisibilitySync)
+    document.addEventListener('visibilitychange', handleVisibilitySync)
+
     return () => {
+      mountedRef.current = false
       clearInterval(interval)
       source.removeEventListener('update', handleUpdate)
       source.removeEventListener('ready', handleUpdate)
+      window.removeEventListener('focus', handleVisibilitySync)
+      document.removeEventListener('visibilitychange', handleVisibilitySync)
       source.close()
     }
-  }, [])
+  }, [loadData])
 
   // Auto-select first service if not selected
   useEffect(() => {
@@ -113,27 +208,8 @@ export default function BookingWizard() {
 
   // Slot Generation Logic
   const generateTimeSlots = () => {
-    if (!settings) {
-      // Fallback slots
-      return [
-        "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
-        "12:00", "12:30", "13:00", "13:30", "14:00", "14:30",
-        "15:00", "15:30", "16:00", "16:30", "17:00", "17:30",
-        "18:00", "18:30", "19:00", "19:30", "20:00", "20:30",
-      ]
-    }
-    const { start, end, interval } = settings.timeSlots
-    const slots = []
-    let current = new Date(`2000-01-01T${start}`)
-    const endTime = new Date(`2000-01-01T${end}`)
-    
-    while (current <= endTime) {
-      const hours = current.getHours().toString().padStart(2, '0')
-      const minutes = current.getMinutes().toString().padStart(2, '0')
-      slots.push(`${hours}:${minutes}`)
-      current.setMinutes(current.getMinutes() + interval)
-    }
-    return slots
+    if (!date) return []
+    return getBusinessSlotsForDay(date.getDay())
   }
 
   const isSlotAvailable = (checkDate: Date, time: string) => {
@@ -151,6 +227,8 @@ export default function BookingWizard() {
       if (dayOfWeek === 0 || dayOfWeek === 1) return false
     }
 
+    if (!isBusinessSlotForDay(dayOfWeek, time)) return false
+
     return !isPast && !hasAppointment
   }
 
@@ -167,7 +245,7 @@ export default function BookingWizard() {
       // Calculate end time
       // Default duration 30 mins or from settings/service
       // Using simple logic: 30 mins default or settings interval
-      const interval = settings?.timeSlots.interval || 30
+      const interval = BUSINESS_SLOT_MINUTES
       
       const [hours, minutes] = selectedTime.split(":").map(Number)
       const endDate = new Date()
@@ -219,9 +297,8 @@ export default function BookingWizard() {
     if (settings) {
       if ((settings.closedDates || []).includes(dateStr)) return true
       if ((settings.openDates || []).includes(dateStr)) return false
-      return !settings.openingDays.includes(dayOfWeek)
     }
-    return dayOfWeek === 0 || dayOfWeek === 1
+    return !Object.prototype.hasOwnProperty.call(BUSINESS_WINDOWS_BY_DAY, dayOfWeek)
   }
 
   // Render Step 1: Selection

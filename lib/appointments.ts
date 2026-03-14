@@ -64,7 +64,7 @@ export function getAppointmentsByDate(date: string): Appointment[] {
 
 export async function fetchAppointmentsRemote(): Promise<Appointment[]> {
   try {
-    const res = await fetch('/api/appointments')
+    const res = await fetch('/api/appointments', { cache: 'no-store' })
     if (!res.ok) throw new Error('Network response not ok')
     const data = await res.json()
     // keep local cache in sync

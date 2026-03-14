@@ -57,6 +57,66 @@ const buildSlotDate = (date: string, time: string) => {
   return slot
 }
 
+
+const BUSINESS_SLOT_MINUTES = 15
+
+const BUSINESS_WINDOWS_BY_DAY: Record<number, Array<{ start: string; end: string }>> = {
+  2: [ // Tuesday
+    { start: "09:00", end: "12:45" },
+    { start: "15:30", end: "20:15" },
+  ],
+  3: [ // Wednesday
+    { start: "09:00", end: "12:45" },
+    { start: "15:30", end: "20:15" },
+  ],
+  4: [ // Thursday
+    { start: "09:00", end: "12:45" },
+    { start: "15:30", end: "20:15" },
+  ],
+  5: [ // Friday
+    { start: "09:00", end: "13:00" },
+    { start: "15:00", end: "20:15" },
+  ],
+  6: [ // Saturday
+    { start: "08:30", end: "20:00" },
+  ],
+}
+
+const toMinutes = (time: string) => {
+  const [h, m] = time.split(":").map(Number)
+  return h * 60 + m
+}
+
+const formatMinutes = (value: number) => {
+  const hh = Math.floor(value / 60).toString().padStart(2, "0")
+  const mm = (value % 60).toString().padStart(2, "0")
+  return `${hh}:${mm}`
+}
+
+const getBusinessSlotsForDay = (dayOfWeek: number) => {
+  const windows = BUSINESS_WINDOWS_BY_DAY[dayOfWeek] || []
+  const slots: string[] = []
+  for (const window of windows) {
+    const start = toMinutes(window.start)
+    const end = toMinutes(window.end)
+    for (let minute = start; minute <= end; minute += BUSINESS_SLOT_MINUTES) {
+      slots.push(formatMinutes(minute))
+    }
+  }
+  return slots
+}
+
+const isBusinessSlotForDay = (dayOfWeek: number, time: string) => {
+  const minute = toMinutes(time)
+  const windows = BUSINESS_WINDOWS_BY_DAY[dayOfWeek] || []
+  return windows.some((window) => {
+    const start = toMinutes(window.start)
+    const end = toMinutes(window.end)
+    if (minute < start || minute > end) return false
+    return (minute - start) % BUSINESS_SLOT_MINUTES === 0
+  })
+}
+
 const normalizeAppointmentsList = (appointments: Appointment[] = []) => {
   const deduped = new Map<string, Appointment>()
   for (const apt of appointments) {
@@ -156,6 +216,12 @@ export default function AdminCalendar() {
     source.addEventListener('update', handleUpdate)
     source.addEventListener('ready', handleUpdate)
 
+    const handleVisibilitySync = () => {
+      handleUpdate()
+    }
+    window.addEventListener('focus', handleVisibilitySync)
+    document.addEventListener('visibilitychange', handleVisibilitySync)
+
     // start polling for upcoming reminders
     const notified = new Set<string>()
     const interval = setInterval(async () => {
@@ -187,6 +253,8 @@ export default function AdminCalendar() {
       clearInterval(interval)
       source.removeEventListener('update', handleUpdate)
       source.removeEventListener('ready', handleUpdate)
+      window.removeEventListener('focus', handleVisibilitySync)
+      document.removeEventListener('visibilitychange', handleVisibilitySync)
       source.close()
     }
   }, [])
@@ -197,33 +265,13 @@ export default function AdminCalendar() {
 
   const weekDays = ["LUN", "MAR", "MER", "GIO", "VEN", "SAB", "DOM"]
   const timeSlots = useMemo(() => {
-    // If settings are loaded, use them
-    if (settings) {
-      const { start, end, interval } = settings.timeSlots
-      const slots: string[] = []
-      let current = new Date(`2000-01-01T${start}`)
-      const endTime = new Date(`2000-01-01T${end}`)
-      
-      while (current <= endTime) {
-        const hours = current.getHours().toString().padStart(2, '0')
-        const minutes = current.getMinutes().toString().padStart(2, '0')
-        slots.push(`${hours}:${minutes}`)
-        current.setMinutes(current.getMinutes() + interval)
-      }
-      return slots
-    }
-
-    // Default fallback
-    const slots: string[] = []
-    const startMinutes = 9 * 60 // 9:00 default
-    const endMinutes = 20 * 60 + 30   // 20:30 default
-    for (let minutes = startMinutes; minutes <= endMinutes; minutes += 30) {
-      const h = Math.floor(minutes / 60)
-      const m = minutes % 60
-      slots.push(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`)
-    }
-    return slots
-  }, [settings])
+    // Use global union of configured business windows in the weekly grid.
+    const merged = new Set<string>()
+    Object.keys(BUSINESS_WINDOWS_BY_DAY).forEach((key) => {
+      getBusinessSlotsForDay(Number(key)).forEach((slot) => merged.add(slot))
+    })
+    return Array.from(merged).sort((a, b) => a.localeCompare(b))
+  }, [])
 
   const [serviceOptions, setServiceOptions] = useState<string[]>(defaultServiceOptions)
   const [servicesList, setServicesList] = useState<Service[]>([])
@@ -300,6 +348,9 @@ export default function AdminCalendar() {
 
   const handleSlotClick = (date: Date, time: string) => {
     const existing = getAppointmentForSlot(date, time)
+    if (!existing && !isBusinessSlotForDay(date.getDay(), time)) {
+      return
+    }
     if (existing) {
       setEditingAppointment(existing)
       setFormData({
@@ -351,7 +402,7 @@ export default function AdminCalendar() {
       }
     } else if (selectedSlot) {
       const [hours, minutes] = selectedSlot.time.split(":").map(Number)
-      const endMinutes = minutes + 30
+      const endMinutes = minutes + BUSINESS_SLOT_MINUTES
       const endHours = hours + Math.floor(endMinutes / 60)
       const endTime = `${endHours.toString().padStart(2, "0")}:${(endMinutes % 60).toString().padStart(2, "0")}`
       // create remote (preferred) and refresh
