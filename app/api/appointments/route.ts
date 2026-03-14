@@ -3,6 +3,23 @@ import { query } from '@/lib/db'
 
 export const runtime = 'nodejs'
 
+const toYYYYMMDD = (value: any) => {
+  if (typeof value === 'string') return value.slice(0, 10)
+  if (value instanceof Date) {
+    const y = value.getFullYear()
+    const m = String(value.getMonth() + 1).padStart(2, '0')
+    const d = String(value.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  }
+  return String(value ?? '').slice(0, 10)
+}
+
+const toHHMM = (value: any) => {
+  if (typeof value === 'string') return value.slice(0, 5)
+  if (value instanceof Date) return value.toTimeString().slice(0, 5)
+  return String(value ?? '').slice(0, 5)
+}
+
 export async function GET() {
   const rows = await query<any>(
     `SELECT id, client_name, client_surname, client_phone, client_email, date, start_time, end_time, service, status, notes, created_at
@@ -16,9 +33,9 @@ export async function GET() {
     clientSurname: row.client_surname ?? null,
     clientPhone: row.client_phone,
     clientEmail: row.client_email ?? null,
-    date: row.date instanceof Date ? row.date.toISOString().slice(0, 10) : row.date,
-    startTime: row.start_time,
-    endTime: row.end_time,
+    date: toYYYYMMDD(row.date),
+    startTime: toHHMM(row.start_time),
+    endTime: toHHMM(row.end_time),
     service: row.service,
     status: row.status,
     notes: row.notes ?? null,
@@ -73,9 +90,9 @@ export async function POST(request: Request) {
         clientSurname: row.client_surname ?? null,
         clientPhone: row.client_phone,
         clientEmail: row.client_email ?? null,
-        date: row.date instanceof Date ? row.date.toISOString().slice(0, 10) : row.date,
-        startTime: row.start_time,
-        endTime: row.end_time,
+        date: toYYYYMMDD(row.date),
+        startTime: toHHMM(row.start_time),
+        endTime: toHHMM(row.end_time),
         service: row.service,
         status: row.status,
         notes: row.notes ?? null,

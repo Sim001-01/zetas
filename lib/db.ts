@@ -9,6 +9,7 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
+  dateStrings: true,
 })
 
 export async function query<T = any>(sql: string, params: any[] = []): Promise<T[]> {
