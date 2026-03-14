@@ -120,6 +120,7 @@ export default function AdminCalendar() {
   const [formData, setFormData] = useState({
     clientName: "",
     clientSurname: "",
+    clientPhone: "",
     clientEmail: "",
     service: defaultServiceOptions[0],
     notes: "",
@@ -289,6 +290,7 @@ export default function AdminCalendar() {
       setFormData({
         clientName: existing.clientName,
         clientSurname: existing.clientSurname || "",
+        clientPhone: existing.clientPhone || "",
         clientEmail: existing.clientEmail || "",
         service: existing.service,
         notes: existing.notes || "",
@@ -301,6 +303,7 @@ export default function AdminCalendar() {
       setFormData({ 
         clientName: "", 
         clientSurname: "",
+        clientPhone: "",
         clientEmail: "",
         service: defaultService, 
         notes: "" 
@@ -938,7 +941,16 @@ export default function AdminCalendar() {
                 />
               </div>
 
-              {/* Campo telefono rimosso dall'interfaccia admin */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Telefono</label>
+                <input
+                  type="tel"
+                  required
+                  value={formData.clientPhone}
+                  onChange={(e) => setFormData({ ...formData, clientPhone: e.target.value })}
+                  className="w-full bg-black border border-zinc-700 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                />
+              </div>
 
               <div>
                 <label className="block text-sm font-medium mb-2">Servizio</label>

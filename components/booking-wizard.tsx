@@ -56,34 +56,39 @@ export default function BookingWizard() {
   })
 
   // Load Data
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [remoteApts, settingsData, remoteServices] = await Promise.all([
-          fetchAppointmentsRemote(),
-          fetchSettings().catch(() => null),
-          fetchServicesRemote().catch(() => [])
-        ])
+  const loadData = async () => {
+    try {
+      const [remoteApts, settingsData, remoteServices] = await Promise.all([
+        fetchAppointmentsRemote(),
+        fetchSettings().catch(() => null),
+        fetchServicesRemote().catch(() => [])
+      ])
 
-        if (remoteApts) {
-          setAppointments(remoteApts.filter(a => a.status === 'confirmed' || a.status === 'pending'))
-        }
-
-        if (settingsData) {
-          setSettings(settingsData)
-        }
-
-        if (remoteServices && remoteServices.length > 0) {
-          setServices(remoteServices as Service[])
-          setAvailableServices(remoteServices.map((s: Service) => s.name))
-        }
-      } catch (e) {
-        console.error("Error loading data", e)
-      } finally {
-        setLoading(false)
+      if (remoteApts) {
+        setAppointments(remoteApts.filter((a) => a.status === 'confirmed' || a.status === 'pending'))
       }
+
+      if (settingsData) {
+        setSettings(settingsData)
+      }
+
+      if (remoteServices && remoteServices.length > 0) {
+        setServices(remoteServices as Service[])
+        setAvailableServices(remoteServices.map((s: Service) => s.name))
+      }
+    } catch (e) {
+      console.error("Error loading data", e)
+    } finally {
+      setLoading(false)
     }
+  }
+
+  useEffect(() => {
     loadData()
+    const interval = setInterval(() => {
+      loadData()
+    }, 30000)
+    return () => clearInterval(interval)
   }, [])
 
   // Auto-select first service if not selected
