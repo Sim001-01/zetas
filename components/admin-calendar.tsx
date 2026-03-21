@@ -160,6 +160,7 @@ const isBusinessSlotForDate = (date: Date, time: string, settings: Settings | nu
 const normalizeAppointmentsList = (appointments: Appointment[] = []) => {
   const deduped = new Map<string, Appointment>()
   for (const apt of appointments) {
+    if (apt.status === 'cancelled') continue
     const sanitizedDate = sanitizeDateString(apt.date)
     deduped.set(apt.id, { ...apt, date: sanitizedDate })
   }
@@ -826,10 +827,6 @@ export default function AdminCalendar() {
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-green-500/20 border-l-4 border-green-500"></div>
             <span className="text-gray-400">Completato</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-gray-500/20 border-l-4 border-gray-500"></div>
-            <span className="text-gray-400">Cancellato</span>
           </div>
         </div>
       </div>

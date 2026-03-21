@@ -160,7 +160,7 @@ const normalizeWithDefaults = (value: Settings): Settings => {
     openingDays,
     timeSlots: {
       ...value.timeSlots,
-      interval: Number(value.timeSlots.interval) || 15,
+      interval: 15,
     },
     openDates: Object.entries(specialDateSchedules).filter(([, s]) => s.enabled).map(([date]) => date).sort(),
     closedDates: Object.entries(specialDateSchedules).filter(([, s]) => !s.enabled).map(([date]) => date).sort(),
@@ -348,14 +348,10 @@ export default function AdminSettings() {
               <label className="block text-sm font-medium text-gray-300 mb-2">Intervallo slot</label>
               <select
                 value={settings.timeSlots.interval}
-                onChange={(e) => setSettings({ ...settings, timeSlots: { ...settings.timeSlots, interval: parseInt(e.target.value, 10) } })}
+                onChange={() => setSettings({ ...settings, timeSlots: { ...settings.timeSlots, interval: 15 } })}
                 className="w-full bg-black border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
               >
                 <option value={15}>15 minuti</option>
-                <option value={20}>20 minuti</option>
-                <option value={30}>30 minuti</option>
-                <option value={45}>45 minuti</option>
-                <option value={60}>60 minuti</option>
               </select>
             </div>
           </div>

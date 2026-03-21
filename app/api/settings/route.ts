@@ -3,12 +3,14 @@ import { query } from '@/lib/db'
 
 export const runtime = 'nodejs'
 
+const SLOT_INTERVAL_MINUTES = 15
+
 const defaultSettings = {
   openingDays: [2, 3, 4, 5, 6], // Tue-Sat (0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat)
   timeSlots: {
     start: "09:00",
     end: "20:30",
-    interval: 30,
+    interval: SLOT_INTERVAL_MINUTES,
   },
   daySchedules: {
     "0": { enabled: false, ranges: [{ start: "09:00", end: "20:00" }] },
@@ -27,10 +29,8 @@ const defaultSettings = {
 
 const clampInterval = (value: any) => {
   const numeric = Number(value)
-  if (!Number.isFinite(numeric)) return defaultSettings.timeSlots.interval
-  if (numeric < 5) return 5
-  if (numeric > 120) return 120
-  return Math.round(numeric)
+  if (!Number.isFinite(numeric)) return SLOT_INTERVAL_MINUTES
+  return SLOT_INTERVAL_MINUTES
 }
 
 const normalizeTimeString = (value: any, fallback: string) => {
