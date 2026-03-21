@@ -110,28 +110,25 @@ export function buildBookingConfirmationEmail(input: BookingEmailInput) {
                   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:6px;">
                     <tr>
                       <td align="center" style="padding:0;">
-                        <!--[if mso]>
-                        <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="${cancelUrl}" style="height:46px;v-text-anchor:middle;width:280px;" arcsize="12%" strokecolor="#dc2626" fillcolor="#dc2626">
-                          <w:anchorlock/>
-                          <center style="color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;">Disdici Appuntamento</center>
-                        </v:roundrect>
-                        <![endif]-->
-                        <!--[if !mso]><!-- -->
-                        <a
-                          href="${cancelUrl}"
-                          class="cta"
-                          style="display:block;width:100%;max-width:280px;margin:0 auto;padding:14px 18px;font-size:15px;line-height:1.2;font-weight:700;color:#ffffff !important;text-decoration:none;text-align:center;border-radius:8px;background:#dc2626;border:1px solid #dc2626;box-sizing:border-box;"
-                        >
-                          Disdici Appuntamento
-                        </a>
-                        <!--<![endif]-->
+                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 auto;border-collapse:separate;">
+                          <tr>
+                            <td bgcolor="#dc2626" style="background:#dc2626;border-radius:8px;mso-padding-alt:14px 24px;text-align:center;">
+                              <a
+                                href="${cancelUrl}"
+                                style="display:inline-block;padding:14px 24px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.2;font-weight:700;color:#ffffff !important;text-decoration:none;border-radius:8px;background:#dc2626;border:1px solid #dc2626;"
+                              >
+                                Disdici Appuntamento
+                              </a>
+                            </td>
+                          </tr>
+                        </table>
                       </td>
                     </tr>
                   </table>
 
                   <p class="text-xs" style="margin:10px 0 0 0;color:#9ca3af;font-size:12px;line-height:1.45;">
                     Se il pulsante non e visibile nel tuo client email, usa questo link diretto:
-                    <a href="${cancelUrl}" style="color:#ef4444;text-decoration:underline;word-break:break-all;">Disdici Appuntamento</a>
+                    <a href="${cancelUrl}" style="color:#fca5a5;text-decoration:underline;word-break:break-all;">Disdici Appuntamento</a>
                   </p>
                 </td>
               </tr>
