@@ -23,8 +23,6 @@ export function buildBookingConfirmationEmail(input: BookingEmailInput) {
     <head>
       <meta charset="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
-      <meta name="color-scheme" content="dark" />
-      <meta name="supported-color-schemes" content="dark" />
       <title>${title}</title>
       <style>
         @media only screen and (max-width: 600px) {
@@ -90,6 +88,26 @@ export function buildBookingConfirmationEmail(input: BookingEmailInput) {
                   <p class="text-base" style="margin:0 0 10px 0;color:#fafafa;font-size:16px;line-height:1.5;">Ciao ${customerName},</p>
                   <p class="text-sm" style="margin:0 0 16px 0;color:#d4d4d8;font-size:14px;line-height:1.6;">${intro}</p>
 
+                  <p class="text-sm" style="margin:0 0 10px 0;color:#d4d4d8;font-size:13px;line-height:1.5;">Per disdire subito il tuo appuntamento usa questo pulsante:</p>
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 14px 0;">
+                    <tr>
+                      <td align="center" style="padding:0;">
+                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 auto;border-collapse:separate;">
+                          <tr>
+                            <td bgcolor="#dc2626" style="background:#dc2626;border-radius:8px;mso-padding-alt:14px 24px;text-align:center;">
+                              <a
+                                href="${cancelUrl}"
+                                style="display:inline-block;padding:14px 24px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.2;font-weight:700;color:#ffffff !important;text-decoration:none;border-radius:8px;background:#dc2626;border:1px solid #dc2626;"
+                              >
+                                DISDICI APPUNTAMENTO
+                              </a>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+
                   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#111113" style="background:#111113;border:1px solid #3f3f46;border-radius:10px;overflow:hidden;">
                     <tr>
                       <td class="text-xs" style="padding:10px 12px;color:#a1a1aa;font-size:12px;border-bottom:1px solid #27272a;">Servizio</td>
@@ -105,7 +123,10 @@ export function buildBookingConfirmationEmail(input: BookingEmailInput) {
                     </tr>
                   </table>
 
-                  <p class="text-sm" style="margin:16px 0 10px 0;color:#d4d4d8;font-size:13px;line-height:1.5;">Se non puoi venire, puoi disdire in autonomia:</p>
+                  <p class="text-sm" style="margin:16px 0 10px 0;color:#d4d4d8;font-size:13px;line-height:1.5;">Se il pulsante non appare, usa questo link diretto:</p>
+                  <p style="margin:0 0 10px 0;padding:10px 12px;background:#111113;border:1px dashed #52525b;border-radius:8px;font-size:12px;line-height:1.4;color:#e4e4e7;word-break:break-all;">
+                    ${cancelUrl}
+                  </p>
 
                   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:6px;">
                     <tr>
@@ -127,7 +148,7 @@ export function buildBookingConfirmationEmail(input: BookingEmailInput) {
                   </table>
 
                   <p class="text-xs" style="margin:10px 0 0 0;color:#9ca3af;font-size:12px;line-height:1.45;">
-                    Se il pulsante non e visibile nel tuo client email, usa questo link diretto:
+                    Link cliccabile di backup:
                     <a href="${cancelUrl}" style="color:#fca5a5;text-decoration:underline;word-break:break-all;">Disdici Appuntamento</a>
                   </p>
                 </td>
