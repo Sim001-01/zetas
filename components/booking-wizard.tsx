@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Calendar } from "@/components/ui/calendar"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -15,7 +14,7 @@ import { fetchSettings, type ScheduleConfig, type Settings } from "@/lib/setting
 import { fetchServicesRemote, type Service } from "@/lib/services"
 import { ArrowLeft, ArrowRight, Calendar as CalendarIcon, Clock, User, Check, Loader2, Info } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { format } from "date-fns"
+import { addDays, addMonths, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfMonth, startOfToday, startOfWeek, subMonths } from "date-fns"
 import { it } from "date-fns/locale"
 
 
@@ -43,10 +42,10 @@ const formatMinutes = (value: number) => {
 }
 
 const getStartOfToday = () => {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return today
+  return startOfToday()
 }
+
+const weekLabels = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"]
 
 const normalizeSchedule = (schedule: any, fallbackStart: string, fallbackEnd: string): ScheduleConfig => {
   if (!schedule || typeof schedule !== "object") {
@@ -157,6 +156,7 @@ export default function BookingWizard() {
 
   // Selection
   const [date, setDate] = useState<Date | undefined>(new Date())
+  const [monthCursor, setMonthCursor] = useState<Date>(startOfMonth(new Date()))
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
   const [selectedService, setSelectedService] = useState<string>("")
 
@@ -177,6 +177,12 @@ export default function BookingWizard() {
   useEffect(() => {
     stepRef.current = step
   }, [step])
+
+  useEffect(() => {
+    if (date) {
+      setMonthCursor(startOfMonth(date))
+    }
+  }, [date])
 
   useEffect(() => {
     submittingRef.current = submitting
@@ -329,6 +335,20 @@ export default function BookingWizard() {
     return !getScheduleForDate(date, settings)?.enabled
   }
 
+  const isDisabledDay = (day: Date) => day < getStartOfToday() || isDateClosed(day)
+
+  const calendarDays = React.useMemo(() => {
+    const start = startOfWeek(startOfMonth(monthCursor), { weekStartsOn: 1 })
+    const end = endOfWeek(endOfMonth(monthCursor), { weekStartsOn: 1 })
+    const days: Date[] = []
+    let cursor = start
+    while (cursor <= end) {
+      days.push(cursor)
+      cursor = addDays(cursor, 1)
+    }
+    return days
+  }, [monthCursor])
+
   useEffect(() => {
     if (!settings) return
     const today = getStartOfToday()
@@ -370,17 +390,50 @@ export default function BookingWizard() {
           <div className="space-y-2">
             <Label>Data</Label>
             <div className="border rounded-md p-4 bg-background/50 backdrop-blur-sm flex justify-center">
-              <Calendar
-                mode="single"
-                selected={date}
-                onSelect={(nextDate) => {
-                  setDate(nextDate)
-                  setSelectedTime(null)
-                }}
-                locale={it}
-                disabled={(d) => d < getStartOfToday() || isDateClosed(d)}
-                className="rounded-md border-0"
-              />
+              <div className="w-full max-w-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <Button type="button" variant="ghost" size="icon" onClick={() => setMonthCursor((m) => subMonths(m, 1))}>
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                  <p className="text-sm font-semibold capitalize">{format(monthCursor, "MMMM yyyy", { locale: it })}</p>
+                  <Button type="button" variant="ghost" size="icon" onClick={() => setMonthCursor((m) => addMonths(m, 1))}>
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-7 gap-1 text-center text-xs text-zinc-400 mb-2">
+                  {weekLabels.map((label) => (
+                    <div key={label}>{label}</div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-1">
+                  {calendarDays.map((day) => {
+                    const outside = !isSameMonth(day, monthCursor)
+                    const disabled = isDisabledDay(day)
+                    const selected = !!date && isSameDay(day, date)
+                    return (
+                      <Button
+                        key={day.toISOString()}
+                        type="button"
+                        variant={selected ? "default" : "ghost"}
+                        size="icon"
+                        disabled={disabled}
+                        className={cn(
+                          "h-9 w-9 p-0 text-sm",
+                          outside && "opacity-30",
+                          disabled && "opacity-40 cursor-not-allowed",
+                          selected && "ring-2 ring-primary ring-offset-1",
+                        )}
+                        onClick={() => {
+                          setDate(day)
+                          setSelectedTime(null)
+                        }}
+                      >
+                        {format(day, "d")}
+                      </Button>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         </div>
