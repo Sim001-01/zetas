@@ -107,23 +107,31 @@ export function buildBookingConfirmationEmail(input: BookingEmailInput) {
 
                   <p class="text-sm" style="margin:16px 0 10px 0;color:#d4d4d8;font-size:13px;line-height:1.5;">Se non puoi venire, puoi disdire in autonomia:</p>
 
-                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:2px;">
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:6px;">
                     <tr>
-                      <td class="cta-wrap" align="left" style="width:100%;">
-                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:separate;">
-                          <tr>
-                            <td bgcolor="#dc2626" style="background:#dc2626;border-radius:8px;">
-                              <a href="${cancelUrl}" class="cta" style="display:inline-block;padding:14px 20px;font-size:15px;line-height:1.2;font-weight:700;color:#ffffff;text-decoration:none;border-radius:8px;background:#dc2626;white-space:nowrap;">Disdici Prenotazione</a>
-                            </td>
-                          </tr>
-                        </table>
+                      <td align="center" style="padding:0;">
+                        <!--[if mso]>
+                        <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="${cancelUrl}" style="height:46px;v-text-anchor:middle;width:280px;" arcsize="12%" strokecolor="#dc2626" fillcolor="#dc2626">
+                          <w:anchorlock/>
+                          <center style="color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;">Disdici Appuntamento</center>
+                        </v:roundrect>
+                        <![endif]-->
+                        <!--[if !mso]><!-- -->
+                        <a
+                          href="${cancelUrl}"
+                          class="cta"
+                          style="display:block;width:100%;max-width:280px;margin:0 auto;padding:14px 18px;font-size:15px;line-height:1.2;font-weight:700;color:#ffffff !important;text-decoration:none;text-align:center;border-radius:8px;background:#dc2626;border:1px solid #dc2626;box-sizing:border-box;"
+                        >
+                          Disdici Appuntamento
+                        </a>
+                        <!--<![endif]-->
                       </td>
                     </tr>
                   </table>
 
                   <p class="text-xs" style="margin:10px 0 0 0;color:#9ca3af;font-size:12px;line-height:1.45;">
                     Se il pulsante non e visibile nel tuo client email, usa questo link diretto:
-                    <a href="${cancelUrl}" style="color:#ef4444;text-decoration:underline;word-break:break-all;">Disdici Prenotazione</a>
+                    <a href="${cancelUrl}" style="color:#ef4444;text-decoration:underline;word-break:break-all;">Disdici Appuntamento</a>
                   </p>
                 </td>
               </tr>
