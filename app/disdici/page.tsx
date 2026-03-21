@@ -80,6 +80,9 @@ export default function CancelAppointmentPage() {
 
       setStatus('success')
       setMessage('La prenotazione e stata disdetta con successo.')
+      setTimeout(() => {
+        window.location.href = 'https://zetasbarbershop.it'
+      }, 1200)
     } catch (error: any) {
       setStatus('error')
       setMessage(error?.message || 'Impossibile disdire la prenotazione.')

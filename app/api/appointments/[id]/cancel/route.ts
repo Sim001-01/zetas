@@ -49,6 +49,10 @@ export async function GET(request: Request, { params }: { params: { id: string }
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
+  if (row.status === 'cancelled') {
+    return NextResponse.json({ error: 'Link non valido: prenotazione gia disdetta' }, { status: 410 })
+  }
+
   if (!row.client_email) {
     return NextResponse.json({ error: 'No email associated with appointment' }, { status: 400 })
   }
@@ -99,6 +103,10 @@ export async function POST(request: Request, { params }: { params: { id: string 
   if (!row) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
+
+  if (row.status === 'cancelled') {
+    return NextResponse.json({ error: 'Link non valido: prenotazione gia disdetta' }, { status: 410 })
+  }
   if (!row.client_email) {
     return NextResponse.json({ error: 'No email associated with appointment' }, { status: 400 })
   }
@@ -114,10 +122,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
     return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
   }
 
-  if (row.status !== 'cancelled') {
-    await query('UPDATE appointments SET status = ? WHERE id = ?', ['cancelled', idNumber])
-    broadcastAppointmentEvent({ type: 'updated', id: idNumber.toString() })
-  }
+  await query('UPDATE appointments SET status = ? WHERE id = ?', ['cancelled', idNumber])
+  broadcastAppointmentEvent({ type: 'updated', id: idNumber.toString() })
 
   return NextResponse.json({ success: true })
 }
