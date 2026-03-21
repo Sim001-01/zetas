@@ -14,7 +14,7 @@ import {
   updateAppointmentRemote,
   deleteAppointmentRemote,
 } from "@/lib/appointments"
-import { fetchSettings, type Settings } from "@/lib/settings"
+import { fetchSettings, type ScheduleConfig, type Settings } from "@/lib/settings"
 import Link from "next/link"
 import {
   fetchServicesRemote,
@@ -60,14 +60,14 @@ const buildSlotDate = (date: string, time: string) => {
 
 const BUSINESS_SLOT_MINUTES = 15
 
-const FALLBACK_DAY_SCHEDULES: Record<number, { enabled: boolean; start: string; end: string }> = {
-  0: { enabled: false, start: "09:00", end: "20:00" },
-  1: { enabled: false, start: "09:00", end: "20:00" },
-  2: { enabled: true, start: "09:00", end: "20:15" },
-  3: { enabled: true, start: "09:00", end: "20:15" },
-  4: { enabled: true, start: "09:00", end: "20:15" },
-  5: { enabled: true, start: "09:00", end: "20:15" },
-  6: { enabled: true, start: "08:30", end: "20:00" },
+const FALLBACK_DAY_SCHEDULES: Record<number, ScheduleConfig> = {
+  0: { enabled: false, ranges: [{ start: "09:00", end: "20:00" }] },
+  1: { enabled: false, ranges: [{ start: "09:00", end: "20:00" }] },
+  2: { enabled: true, ranges: [{ start: "09:00", end: "20:15" }] },
+  3: { enabled: true, ranges: [{ start: "09:00", end: "20:15" }] },
+  4: { enabled: true, ranges: [{ start: "09:00", end: "20:15" }] },
+  5: { enabled: true, ranges: [{ start: "09:00", end: "20:15" }] },
+  6: { enabled: true, ranges: [{ start: "08:30", end: "20:00" }] },
 }
 
 const toMinutes = (time: string) => {
@@ -81,41 +81,80 @@ const formatMinutes = (value: number) => {
   return `${hh}:${mm}`
 }
 
-const getDaySchedule = (dayOfWeek: number, settings: Settings | null) => {
-  const fromSettings = settings?.daySchedules?.[dayOfWeek.toString()]
-  if (fromSettings) return fromSettings
+const normalizeSchedule = (schedule: any, fallbackStart: string, fallbackEnd: string): ScheduleConfig => {
+  if (!schedule || typeof schedule !== "object") {
+    return { enabled: false, ranges: [{ start: fallbackStart, end: fallbackEnd }] }
+  }
+  const rawRanges = Array.isArray(schedule.ranges) && schedule.ranges.length
+    ? schedule.ranges
+    : (typeof schedule.start === "string" && typeof schedule.end === "string"
+      ? [{ start: schedule.start, end: schedule.end }]
+      : [{ start: fallbackStart, end: fallbackEnd }])
+
+  return {
+    enabled: typeof schedule.enabled === "boolean" ? schedule.enabled : false,
+    ranges: rawRanges.slice(0, 2),
+  }
+}
+
+const getDaySchedule = (dayOfWeek: number, settings: Settings | null): ScheduleConfig => {
+  const fromSettings = (settings?.daySchedules as any)?.[dayOfWeek.toString()]
+  if (fromSettings) {
+    return normalizeSchedule(fromSettings, settings?.timeSlots?.start || "09:00", settings?.timeSlots?.end || "20:00")
+  }
   if (settings) {
     return {
       enabled: settings.openingDays.includes(dayOfWeek),
-      start: settings.timeSlots.start,
-      end: settings.timeSlots.end,
+      ranges: [{ start: settings.timeSlots.start, end: settings.timeSlots.end }],
     }
   }
-  return FALLBACK_DAY_SCHEDULES[dayOfWeek]
+  return FALLBACK_DAY_SCHEDULES[dayOfWeek] || FALLBACK_DAY_SCHEDULES[1]
 }
 
-const getBusinessSlotsForDay = (dayOfWeek: number, settings: Settings | null) => {
-  const daySchedule = getDaySchedule(dayOfWeek, settings)
+const getScheduleForDate = (date: Date, settings: Settings | null): ScheduleConfig => {
+  if (!settings) {
+    return getDaySchedule(date.getDay(), null)
+  }
+  const dateStr = formatDateLocal(date)
+  const special = (settings.specialDateSchedules as any)?.[dateStr]
+  if (special) {
+    return normalizeSchedule(special, settings.timeSlots.start, settings.timeSlots.end)
+  }
+  if ((settings.closedDates || []).includes(dateStr)) {
+    return { enabled: false, ranges: [{ start: settings.timeSlots.start, end: settings.timeSlots.end }] }
+  }
+  if ((settings.openDates || []).includes(dateStr)) {
+    return { enabled: true, ranges: [{ start: settings.timeSlots.start, end: settings.timeSlots.end }] }
+  }
+  return getDaySchedule(date.getDay(), settings)
+}
+
+const getBusinessSlotsForDate = (date: Date, settings: Settings | null) => {
+  const daySchedule = getScheduleForDate(date, settings)
   if (!daySchedule?.enabled) return []
   const interval = Math.max(5, Number(settings?.timeSlots?.interval || BUSINESS_SLOT_MINUTES))
   const slots: string[] = []
-  const start = toMinutes(daySchedule.start)
-  const end = toMinutes(daySchedule.end)
-  for (let minute = start; minute <= end; minute += interval) {
-    slots.push(formatMinutes(minute))
+  for (const range of daySchedule.ranges || []) {
+    const start = toMinutes(range.start)
+    const end = toMinutes(range.end)
+    for (let minute = start; minute <= end; minute += interval) {
+      slots.push(formatMinutes(minute))
+    }
   }
-  return slots
+  return Array.from(new Set(slots)).sort((a, b) => a.localeCompare(b))
 }
 
-const isBusinessSlotForDay = (dayOfWeek: number, time: string, settings: Settings | null) => {
-  const daySchedule = getDaySchedule(dayOfWeek, settings)
+const isBusinessSlotForDate = (date: Date, time: string, settings: Settings | null) => {
+  const daySchedule = getScheduleForDate(date, settings)
   if (!daySchedule?.enabled) return false
   const interval = Math.max(5, Number(settings?.timeSlots?.interval || BUSINESS_SLOT_MINUTES))
   const minute = toMinutes(time)
-  const start = toMinutes(daySchedule.start)
-  const end = toMinutes(daySchedule.end)
-  if (minute < start || minute > end) return false
-  return (minute - start) % interval === 0
+  return (daySchedule.ranges || []).some((range) => {
+    const start = toMinutes(range.start)
+    const end = toMinutes(range.end)
+    if (minute < start || minute > end) return false
+    return (minute - start) % interval === 0
+  })
 }
 
 const normalizeAppointmentsList = (appointments: Appointment[] = []) => {
@@ -265,13 +304,20 @@ export default function AdminCalendar() {
 
   const weekDays = ["LUN", "MAR", "MER", "GIO", "VEN", "SAB", "DOM"]
   const timeSlots = useMemo(() => {
-    // Use global union of configured business windows in the weekly grid.
+    // Use union of slots visible in the current week (including special-date overrides).
+    const anchorMonday = toLocalMidday(currentDate)
+    const day = anchorMonday.getDay()
+    const diff = day === 0 ? -6 : 1 - day
+    anchorMonday.setDate(anchorMonday.getDate() + diff)
+
     const merged = new Set<string>()
-    for (let day = 0; day <= 6; day += 1) {
-      getBusinessSlotsForDay(day, settings).forEach((slot) => merged.add(slot))
+    for (let i = 0; i < 7; i += 1) {
+      const date = toLocalMidday(anchorMonday)
+      date.setDate(anchorMonday.getDate() + i)
+      getBusinessSlotsForDate(date, settings).forEach((slot) => merged.add(slot))
     }
     return Array.from(merged).sort((a, b) => a.localeCompare(b))
-  }, [settings])
+  }, [settings, currentDate])
 
   const [serviceOptions, setServiceOptions] = useState<string[]>(defaultServiceOptions)
   const [servicesList, setServicesList] = useState<Service[]>([])
@@ -348,7 +394,7 @@ export default function AdminCalendar() {
 
   const handleSlotClick = (date: Date, time: string) => {
     const existing = getAppointmentForSlot(date, time)
-    if (!existing && !isBusinessSlotForDay(date.getDay(), time, settings)) {
+    if (!existing && !isBusinessSlotForDate(date, time, settings)) {
       return
     }
     if (existing) {

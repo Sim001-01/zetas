@@ -11,14 +11,15 @@ const defaultSettings = {
     interval: 30,
   },
   daySchedules: {
-    "0": { enabled: false, start: "09:00", end: "20:00" },
-    "1": { enabled: false, start: "09:00", end: "20:00" },
-    "2": { enabled: true, start: "09:00", end: "20:15" },
-    "3": { enabled: true, start: "09:00", end: "20:15" },
-    "4": { enabled: true, start: "09:00", end: "20:15" },
-    "5": { enabled: true, start: "09:00", end: "20:15" },
-    "6": { enabled: true, start: "08:30", end: "20:00" },
+    "0": { enabled: false, ranges: [{ start: "09:00", end: "20:00" }] },
+    "1": { enabled: false, ranges: [{ start: "09:00", end: "20:00" }] },
+    "2": { enabled: true, ranges: [{ start: "09:00", end: "20:15" }] },
+    "3": { enabled: true, ranges: [{ start: "09:00", end: "20:15" }] },
+    "4": { enabled: true, ranges: [{ start: "09:00", end: "20:15" }] },
+    "5": { enabled: true, ranges: [{ start: "09:00", end: "20:15" }] },
+    "6": { enabled: true, ranges: [{ start: "08:30", end: "20:00" }] },
   },
+  specialDateSchedules: {},
   closedDays: [0, 1], // Legacy/unused for now in new logic but kept for safety
   openDates: [], // YYYY-MM-DD overrides to force open
   closedDates: [], // YYYY-MM-DD overrides to force closed
@@ -39,16 +40,39 @@ const normalizeTimeString = (value: any, fallback: string) => {
   return trimmed
 }
 
+const normalizeRanges = (ranges: any, fallbackStart: string, fallbackEnd: string) => {
+  if (!Array.isArray(ranges) || !ranges.length) {
+    return [{ start: fallbackStart, end: fallbackEnd }]
+  }
+  const normalized = ranges
+    .map((range) => ({
+      start: normalizeTimeString(range?.start, fallbackStart),
+      end: normalizeTimeString(range?.end, fallbackEnd),
+    }))
+    .filter((range) => range.start < range.end)
+  return normalized.length ? normalized.slice(0, 2) : [{ start: fallbackStart, end: fallbackEnd }]
+}
+
+const normalizeScheduleConfig = (raw: any, fallbackEnabled: boolean, fallbackStart: string, fallbackEnd: string) => {
+  const enabled = typeof raw?.enabled === 'boolean' ? raw.enabled : fallbackEnabled
+  const legacyStart = normalizeTimeString(raw?.start, fallbackStart)
+  const legacyEnd = normalizeTimeString(raw?.end, fallbackEnd)
+  const ranges = normalizeRanges(raw?.ranges, legacyStart, legacyEnd)
+  return {
+    enabled,
+    ranges,
+  }
+}
+
 const buildLegacyFallbackSchedules = (input: any) => {
   const openingDays = Array.isArray(input?.openingDays) ? input.openingDays : defaultSettings.openingDays
   const start = normalizeTimeString(input?.timeSlots?.start, defaultSettings.timeSlots.start)
   const end = normalizeTimeString(input?.timeSlots?.end, defaultSettings.timeSlots.end)
-  const result: Record<string, { enabled: boolean; start: string; end: string }> = {}
+  const result: Record<string, { enabled: boolean; ranges: Array<{ start: string; end: string }> }> = {}
   for (let day = 0; day <= 6; day += 1) {
     result[day.toString()] = {
       enabled: openingDays.includes(day),
-      start,
-      end,
+      ranges: [{ start, end }],
     }
   }
   return result
@@ -61,17 +85,53 @@ const normalizeDaySchedules = (input: any) => {
     return fallback
   }
 
-  const normalized: Record<string, { enabled: boolean; start: string; end: string }> = {}
+  const normalized: Record<string, { enabled: boolean; ranges: Array<{ start: string; end: string }> }> = {}
   for (let day = 0; day <= 6; day += 1) {
     const key = day.toString()
     const fallbackDay = fallback[key] || defaultSettings.daySchedules[key as keyof typeof defaultSettings.daySchedules]
     const incomingDay = incoming[key] || incoming[day]
-    normalized[key] = {
-      enabled: typeof incomingDay?.enabled === 'boolean' ? incomingDay.enabled : fallbackDay.enabled,
-      start: normalizeTimeString(incomingDay?.start, fallbackDay.start),
-      end: normalizeTimeString(incomingDay?.end, fallbackDay.end),
+    normalized[key] = normalizeScheduleConfig(
+      incomingDay,
+      fallbackDay.enabled,
+      fallbackDay.ranges[0]?.start ?? defaultSettings.timeSlots.start,
+      fallbackDay.ranges[0]?.end ?? defaultSettings.timeSlots.end,
+    )
+  }
+  return normalized
+}
+
+const normalizeSpecialDateSchedules = (input: any) => {
+  const incoming = input?.specialDateSchedules ?? input?.timeSlots?.specialDateSchedules
+  const normalized: Record<string, { enabled: boolean; ranges: Array<{ start: string; end: string }> }> = {}
+
+  if (incoming && typeof incoming === 'object') {
+    for (const [key, raw] of Object.entries(incoming)) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) continue
+      normalized[key] = normalizeScheduleConfig(raw, true, defaultSettings.timeSlots.start, defaultSettings.timeSlots.end)
     }
   }
+
+  const openDates = Array.isArray(input?.openDates) ? input.openDates : []
+  const closedDates = Array.isArray(input?.closedDates) ? input.closedDates : []
+
+  for (const date of openDates) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue
+    if (!normalized[date]) {
+      normalized[date] = {
+        enabled: true,
+        ranges: [{ start: defaultSettings.timeSlots.start, end: defaultSettings.timeSlots.end }],
+      }
+    }
+  }
+
+  for (const date of closedDates) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue
+    normalized[date] = {
+      enabled: false,
+      ranges: [{ start: defaultSettings.timeSlots.start, end: defaultSettings.timeSlots.end }],
+    }
+  }
+
   return normalized
 }
 
@@ -83,18 +143,30 @@ function normalizeSettings(input: any) {
   }
 
   const daySchedules = normalizeDaySchedules(input)
+  const specialDateSchedules = normalizeSpecialDateSchedules(input)
   const openingDays = Object.entries(daySchedules)
     .filter(([, day]) => day.enabled)
     .map(([day]) => Number(day))
     .sort((a, b) => a - b)
 
+  const openDates = Object.entries(specialDateSchedules)
+    .filter(([, schedule]) => schedule.enabled)
+    .map(([date]) => date)
+    .sort()
+
+  const closedDates = Object.entries(specialDateSchedules)
+    .filter(([, schedule]) => !schedule.enabled)
+    .map(([date]) => date)
+    .sort()
+
   return {
     timeSlots,
     daySchedules,
+    specialDateSchedules,
     openingDays,
     closedDays: Array.isArray(input?.closedDays) ? input.closedDays : defaultSettings.closedDays,
-    openDates: Array.isArray(input?.openDates) ? input.openDates : defaultSettings.openDates,
-    closedDates: Array.isArray(input?.closedDates) ? input.closedDates : defaultSettings.closedDates,
+    openDates,
+    closedDates,
   }
 }
 
@@ -132,7 +204,7 @@ export async function GET() {
         [
           SETTINGS_ID,
           JSON.stringify(defaultSettings.openingDays),
-          JSON.stringify({ ...defaultSettings.timeSlots, daySchedules: defaultSettings.daySchedules }),
+          JSON.stringify({ ...defaultSettings.timeSlots, daySchedules: defaultSettings.daySchedules, specialDateSchedules: defaultSettings.specialDateSchedules }),
           JSON.stringify(defaultSettings.closedDays),
           JSON.stringify(defaultSettings.openDates),
           JSON.stringify(defaultSettings.closedDates),
@@ -174,7 +246,7 @@ export async function POST(request: Request) {
       [
         SETTINGS_ID,
         JSON.stringify(normalized.openingDays),
-        JSON.stringify({ ...normalized.timeSlots, daySchedules: normalized.daySchedules }),
+        JSON.stringify({ ...normalized.timeSlots, daySchedules: normalized.daySchedules, specialDateSchedules: normalized.specialDateSchedules }),
         JSON.stringify(normalized.closedDays),
         JSON.stringify(normalized.openDates),
         JSON.stringify(normalized.closedDates),

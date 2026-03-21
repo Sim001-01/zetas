@@ -1,3 +1,13 @@
+export type ScheduleRange = {
+  start: string;
+  end: string;
+}
+
+export type ScheduleConfig = {
+  enabled: boolean;
+  ranges: ScheduleRange[];
+}
+
 export interface Settings {
   openingDays: number[]; // 0-6, 0=Sunday
   timeSlots: {
@@ -5,11 +15,8 @@ export interface Settings {
     end: string;
     interval: number; // minutes
   };
-  daySchedules: Record<string, {
-    enabled: boolean;
-    start: string;
-    end: string;
-  }>;
+  daySchedules: Record<string, ScheduleConfig>;
+  specialDateSchedules: Record<string, ScheduleConfig>; // YYYY-MM-DD
   closedDays: number[];
   openDates: string[]; // YYYY-MM-DD overrides (force open)
   closedDates: string[]; // YYYY-MM-DD overrides (force closed)
