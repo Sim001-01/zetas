@@ -21,7 +21,26 @@ const run = async () => {
   const targets = (byExact.length ? byExact : (byHaircut.length ? byHaircut : byGeneric)).filter((service) => service?.id)
 
   if (!targets.length) {
-    throw new Error('Target haircut service not found')
+    const createRes = await fetch(`${baseUrl}/api/services`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Taglio Capelli',
+        duration_minutes: 30,
+        description: 'Taglio tradizionale',
+        price: TARGET_PRICE,
+      }),
+    })
+
+    if (!createRes.ok) {
+      const text = await createRes.text()
+      throw new Error(`Target haircut service not found and create failed: ${createRes.status} ${text}`)
+    }
+
+    const created = await createRes.json()
+    console.log(`createdService=${created.name}`)
+    console.log(`updatedPrice=${created.price}`)
+    return
   }
 
   for (const target of targets) {
