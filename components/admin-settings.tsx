@@ -34,11 +34,11 @@ type ScheduleFormState = {
 const buildDefaultDaySchedules = (): Record<string, ScheduleConfig> => ({
   "0": { enabled: false, ranges: [{ start: "09:00", end: "20:00" }] },
   "1": { enabled: false, ranges: [{ start: "09:00", end: "20:00" }] },
-  "2": { enabled: true, ranges: [{ start: "09:00", end: "20:15" }] },
-  "3": { enabled: true, ranges: [{ start: "09:00", end: "20:15" }] },
-  "4": { enabled: true, ranges: [{ start: "09:00", end: "20:15" }] },
-  "5": { enabled: true, ranges: [{ start: "09:00", end: "20:15" }] },
-  "6": { enabled: true, ranges: [{ start: "08:30", end: "20:00" }] },
+  "2": { enabled: true, ranges: [{ start: "09:00", end: "12:45" }, { start: "15:30", end: "20:15" }] },
+  "3": { enabled: true, ranges: [{ start: "09:00", end: "12:45" }, { start: "15:30", end: "20:15" }] },
+  "4": { enabled: true, ranges: [{ start: "09:00", end: "12:45" }, { start: "15:30", end: "20:15" }] },
+  "5": { enabled: true, ranges: [{ start: "09:00", end: "13:00" }, { start: "15:00", end: "20:30" }] },
+  "6": { enabled: true, ranges: [{ start: "08:30", end: "19:45" }] },
 })
 
 const toScheduleForm = (config: ScheduleConfig, fallbackStart: string, fallbackEnd: string): ScheduleFormState => {
@@ -76,7 +76,7 @@ const fallbackSettings: Settings = {
   daySchedules: buildDefaultDaySchedules(),
   specialDateSchedules: {},
   timeSlots: {
-    start: "09:00",
+    start: "08:30",
     end: "20:30",
     interval: 15,
   },

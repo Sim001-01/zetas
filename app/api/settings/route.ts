@@ -8,18 +8,18 @@ const SLOT_INTERVAL_MINUTES = 15
 const defaultSettings = {
   openingDays: [2, 3, 4, 5, 6], // Tue-Sat (0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat)
   timeSlots: {
-    start: "09:00",
+    start: "08:30",
     end: "20:30",
     interval: SLOT_INTERVAL_MINUTES,
   },
   daySchedules: {
     "0": { enabled: false, ranges: [{ start: "09:00", end: "20:00" }] },
     "1": { enabled: false, ranges: [{ start: "09:00", end: "20:00" }] },
-    "2": { enabled: true, ranges: [{ start: "09:00", end: "20:15" }] },
-    "3": { enabled: true, ranges: [{ start: "09:00", end: "20:15" }] },
-    "4": { enabled: true, ranges: [{ start: "09:00", end: "20:15" }] },
-    "5": { enabled: true, ranges: [{ start: "09:00", end: "20:15" }] },
-    "6": { enabled: true, ranges: [{ start: "08:30", end: "20:00" }] },
+    "2": { enabled: true, ranges: [{ start: "09:00", end: "12:45" }, { start: "15:30", end: "20:15" }] },
+    "3": { enabled: true, ranges: [{ start: "09:00", end: "12:45" }, { start: "15:30", end: "20:15" }] },
+    "4": { enabled: true, ranges: [{ start: "09:00", end: "12:45" }, { start: "15:30", end: "20:15" }] },
+    "5": { enabled: true, ranges: [{ start: "09:00", end: "13:00" }, { start: "15:00", end: "20:30" }] },
+    "6": { enabled: true, ranges: [{ start: "08:30", end: "19:45" }] },
   },
   specialDateSchedules: {},
   closedDays: [0, 1], // Legacy/unused for now in new logic but kept for safety
