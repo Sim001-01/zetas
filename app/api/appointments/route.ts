@@ -232,28 +232,6 @@ export async function POST(request: Request) {
           })
         }
 
-        // Temporary immediate reminder email (requested). Later we can schedule this in advance.
-        const reminderSubject = 'Promemoria prenotazione'
-        const reminderHtml = buildBookingConfirmationEmail({
-          customerName: `${row.client_name}${row.client_surname ? ` ${row.client_surname}` : ''}`,
-          service: row.service,
-          date: toYYYYMMDD(row.date),
-          startTime: toHHMM(row.start_time),
-          endTime: toHHMM(row.end_time),
-          cancelUrl,
-          variant: 'reminder',
-        })
-
-        try {
-          await resend.emails.send({ from, to: row.client_email, subject: reminderSubject, html: reminderHtml })
-        } catch {
-          await resend.emails.send({
-            from: 'onboarding@resend.dev',
-            to: row.client_email,
-            subject: reminderSubject,
-            html: reminderHtml,
-          })
-        }
         emailSent = true
       } catch (emailError) {
         console.error('Confirmation email error:', emailError)
