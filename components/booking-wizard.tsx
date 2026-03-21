@@ -64,6 +64,15 @@ const getStartOfToday = () => {
   return today
 }
 
+const buildUpcomingDays = (count: number) => {
+  const start = getStartOfToday()
+  return Array.from({ length: count }, (_, i) => {
+    const d = new Date(start)
+    d.setDate(start.getDate() + i)
+    return d
+  })
+}
+
 const normalizeSchedule = (schedule: any, fallbackStart: string, fallbackEnd: string): ScheduleConfig => {
   if (!schedule || typeof schedule !== "object") {
     return { enabled: false, ranges: [{ start: fallbackStart, end: fallbackEnd }] }
@@ -385,39 +394,40 @@ export default function BookingWizard() {
           
           <div className="space-y-2">
             <Label>Data</Label>
-            <Input
-              type="date"
-              className="bg-black/50 border-zinc-700 text-white"
-              min={dateToInputValue(getStartOfToday())}
-              value={dateToInputValue(date)}
-              onChange={(e) => {
-                const nextDate = inputValueToDate(e.target.value)
-                if (!nextDate) {
-                  setDate(undefined)
-                  setSelectedTime(null)
-                  return
-                }
-                const today = getStartOfToday()
-                if (nextDate < today) {
-                  setSelectedTime(null)
-                  toast({
-                    title: "Data non disponibile",
-                    description: "Non puoi selezionare un giorno passato.",
-                    variant: "destructive",
-                  })
-                  return
-                }
-                setDate(nextDate)
-                setSelectedTime(null)
-                if (isDateClosed(nextDate)) {
-                  toast({
-                    title: "Giorno di chiusura",
-                    description: "Questo giorno e chiuso. Seleziona un giorno aperto per vedere gli orari.",
-                    variant: "destructive",
-                  })
-                }
-              }}
-            />
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[220px] overflow-y-auto rounded-md border border-zinc-700 p-2 bg-black/30">
+              {buildUpcomingDays(30).map((day) => {
+                const value = dateToInputValue(day)
+                const selected = dateToInputValue(date) === value
+                const closed = isDateClosed(day)
+                return (
+                  <Button
+                    key={value}
+                    type="button"
+                    variant={selected ? "default" : "outline"}
+                    className={cn(
+                      "h-auto py-2 px-2 flex flex-col items-center gap-0.5 border-zinc-700",
+                      selected && "ring-2 ring-primary ring-offset-2",
+                      closed && "text-zinc-400",
+                    )}
+                    onClick={() => {
+                      setDate(day)
+                      setSelectedTime(null)
+                      if (closed) {
+                        toast({
+                          title: "Giorno di chiusura",
+                          description: "Questo giorno e chiuso. Seleziona un giorno aperto per vedere gli orari.",
+                          variant: "destructive",
+                        })
+                      }
+                    }}
+                  >
+                    <span className="text-[11px] uppercase tracking-wide">{format(day, "EEE", { locale: it })}</span>
+                    <span className="text-sm font-semibold">{format(day, "dd/MM")}</span>
+                    <span className="text-[10px] opacity-80">{closed ? "Chiuso" : "Aperto"}</span>
+                  </Button>
+                )
+              })}
+            </div>
           </div>
         </div>
 
