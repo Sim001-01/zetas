@@ -58,6 +58,12 @@ const inputValueToDate = (value: string) => {
   return parsed
 }
 
+const getStartOfToday = () => {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return today
+}
+
 const normalizeSchedule = (schedule: any, fallbackStart: string, fallbackEnd: string): ScheduleConfig => {
   if (!schedule || typeof schedule !== "object") {
     return { enabled: false, ranges: [{ start: fallbackStart, end: fallbackEnd }] }
@@ -339,6 +345,25 @@ export default function BookingWizard() {
     return !getScheduleForDate(date, settings)?.enabled
   }
 
+  useEffect(() => {
+    if (!settings) return
+    const today = getStartOfToday()
+
+    if (date && date >= today && !isDateClosed(date)) {
+      return
+    }
+
+    for (let i = 0; i < 90; i++) {
+      const candidate = new Date(today)
+      candidate.setDate(today.getDate() + i)
+      if (!isDateClosed(candidate)) {
+        setDate(candidate)
+        setSelectedTime(null)
+        return
+      }
+    }
+  }, [settings])
+
   // Render Step 1: Selection
   const renderStep1 = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
@@ -363,7 +388,7 @@ export default function BookingWizard() {
             <Input
               type="date"
               className="bg-black/50 border-zinc-700 text-white"
-              min={dateToInputValue(new Date())}
+              min={dateToInputValue(getStartOfToday())}
               value={dateToInputValue(date)}
               onChange={(e) => {
                 const nextDate = inputValueToDate(e.target.value)
@@ -372,19 +397,25 @@ export default function BookingWizard() {
                   setSelectedTime(null)
                   return
                 }
-                const today = new Date()
-                today.setHours(0, 0, 0, 0)
-                if (nextDate < today || isDateClosed(nextDate)) {
+                const today = getStartOfToday()
+                if (nextDate < today) {
                   setSelectedTime(null)
                   toast({
                     title: "Data non disponibile",
-                    description: "Seleziona un giorno di apertura valido.",
+                    description: "Non puoi selezionare un giorno passato.",
                     variant: "destructive",
                   })
                   return
                 }
                 setDate(nextDate)
                 setSelectedTime(null)
+                if (isDateClosed(nextDate)) {
+                  toast({
+                    title: "Giorno di chiusura",
+                    description: "Questo giorno e chiuso. Seleziona un giorno aperto per vedere gli orari.",
+                    variant: "destructive",
+                  })
+                }
               }}
             />
           </div>
