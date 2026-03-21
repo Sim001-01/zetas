@@ -5,6 +5,11 @@ export interface Settings {
     end: string;
     interval: number; // minutes
   };
+  daySchedules: Record<string, {
+    enabled: boolean;
+    start: string;
+    end: string;
+  }>;
   closedDays: number[];
   openDates: string[]; // YYYY-MM-DD overrides (force open)
   closedDates: string[]; // YYYY-MM-DD overrides (force closed)

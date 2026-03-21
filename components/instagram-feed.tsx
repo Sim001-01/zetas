@@ -28,7 +28,6 @@ export default function InstagramFeed() {
               className="w-full h-[400px] md:h-[600px] rounded-2xl bg-transparent"
               frameBorder="0"
               scrolling="no"
-              allowTransparency
               title="Instagram Feed"
             />
           </div>

@@ -30,43 +30,73 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const updates = await request.json()
 
   try {
-    const existingRows = await query<any>(
-      `SELECT id, client_name, client_surname, client_phone, client_email, date, start_time, end_time, service, status, notes, created_at
-       FROM appointments
-       WHERE id = ?
-       LIMIT 1`,
-      [idNumber],
-    )
+    let legacySchema = false
+    let existingRows: any[] = []
+    try {
+      existingRows = await query<any>(
+        `SELECT id, client_name, client_surname, client_phone, client_email, date, start_time, end_time, service, status, notes, created_at
+         FROM appointments
+         WHERE id = ?
+         LIMIT 1`,
+        [idNumber],
+      )
+    } catch (error: any) {
+      if (error?.code !== 'ER_BAD_FIELD_ERROR') throw error
+      legacySchema = true
+      existingRows = await query<any>(
+        `SELECT id, name AS client_name, surname AS client_surname, phone AS client_phone, email AS client_email, date, start AS start_time, end AS end_time, service, status, notes, created_at
+         FROM appointments
+         WHERE id = ?
+         LIMIT 1`,
+        [idNumber],
+      )
+    }
     const existing = existingRows[0]
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const nextDate = updates.date ?? existing.date
     const nextStart = updates.startTime ?? existing.start_time
 
-    await query(
-      `UPDATE appointments
-       SET client_name = ?, client_surname = ?, client_phone = ?, client_email = ?, date = ?, start_time = ?, end_time = ?, service = ?, status = ?, notes = ?
-       WHERE id = ?`,
-      [
-        updates.clientName ?? existing.client_name,
-        updates.clientSurname ?? existing.client_surname,
-        updates.clientPhone ?? existing.client_phone,
-        updates.clientEmail ?? existing.client_email,
-        nextDate,
-        nextStart,
-        updates.endTime ?? existing.end_time,
-        updates.service ?? existing.service,
-        updates.status ?? existing.status,
-        updates.notes ?? existing.notes,
-        idNumber,
-      ],
-    )
+    const updateParams = [
+      updates.clientName ?? existing.client_name,
+      updates.clientSurname ?? existing.client_surname,
+      updates.clientPhone ?? existing.client_phone,
+      updates.clientEmail ?? existing.client_email,
+      nextDate,
+      nextStart,
+      updates.endTime ?? existing.end_time,
+      updates.service ?? existing.service,
+      updates.status ?? existing.status,
+      updates.notes ?? existing.notes,
+      idNumber,
+    ]
+
+    if (legacySchema) {
+      await query(
+        `UPDATE appointments
+         SET name = ?, surname = ?, phone = ?, email = ?, date = ?, start = ?, end = ?, service = ?, status = ?, notes = ?
+         WHERE id = ?`,
+        updateParams,
+      )
+    } else {
+      await query(
+        `UPDATE appointments
+         SET client_name = ?, client_surname = ?, client_phone = ?, client_email = ?, date = ?, start_time = ?, end_time = ?, service = ?, status = ?, notes = ?
+         WHERE id = ?`,
+        updateParams,
+      )
+    }
 
     const updatedRows = await query<any>(
-      `SELECT id, client_name, client_surname, client_phone, client_email, date, start_time, end_time, service, status, notes, created_at
-       FROM appointments
-       WHERE id = ?
-       LIMIT 1`,
+      legacySchema
+        ? `SELECT id, name AS client_name, surname AS client_surname, phone AS client_phone, email AS client_email, date, start AS start_time, end AS end_time, service, status, notes, created_at
+           FROM appointments
+           WHERE id = ?
+           LIMIT 1`
+        : `SELECT id, client_name, client_surname, client_phone, client_email, date, start_time, end_time, service, status, notes, created_at
+           FROM appointments
+           WHERE id = ?
+           LIMIT 1`,
       [idNumber],
     )
     const row = updatedRows[0]

@@ -21,26 +21,14 @@ import { it } from "date-fns/locale"
 
 const BUSINESS_SLOT_MINUTES = 15
 
-const BUSINESS_WINDOWS_BY_DAY: Record<number, Array<{ start: string; end: string }>> = {
-  2: [ // Tuesday
-    { start: "09:00", end: "12:45" },
-    { start: "15:30", end: "20:15" },
-  ],
-  3: [ // Wednesday
-    { start: "09:00", end: "12:45" },
-    { start: "15:30", end: "20:15" },
-  ],
-  4: [ // Thursday
-    { start: "09:00", end: "12:45" },
-    { start: "15:30", end: "20:15" },
-  ],
-  5: [ // Friday
-    { start: "09:00", end: "13:00" },
-    { start: "15:00", end: "20:15" },
-  ],
-  6: [ // Saturday
-    { start: "08:30", end: "20:00" },
-  ],
+const FALLBACK_DAY_SCHEDULES: Record<number, { enabled: boolean; start: string; end: string }> = {
+  0: { enabled: false, start: "09:00", end: "20:00" },
+  1: { enabled: false, start: "09:00", end: "20:00" },
+  2: { enabled: true, start: "09:00", end: "20:15" },
+  3: { enabled: true, start: "09:00", end: "20:15" },
+  4: { enabled: true, start: "09:00", end: "20:15" },
+  5: { enabled: true, start: "09:00", end: "20:15" },
+  6: { enabled: true, start: "08:30", end: "20:00" },
 }
 
 const toMinutes = (time: string) => {
@@ -54,28 +42,47 @@ const formatMinutes = (value: number) => {
   return `${hh}:${mm}`
 }
 
-const getBusinessSlotsForDay = (dayOfWeek: number) => {
-  const windows = BUSINESS_WINDOWS_BY_DAY[dayOfWeek] || []
-  const slots: string[] = []
-  for (const window of windows) {
-    const start = toMinutes(window.start)
-    const end = toMinutes(window.end)
-    for (let minute = start; minute <= end; minute += BUSINESS_SLOT_MINUTES) {
-      slots.push(formatMinutes(minute))
+const getDaySchedule = (dayOfWeek: number, settings: Settings | null) => {
+  const fromSettings = settings?.daySchedules?.[dayOfWeek.toString()]
+  if (fromSettings) {
+    return fromSettings
+  }
+
+  if (settings) {
+    return {
+      enabled: settings.openingDays.includes(dayOfWeek),
+      start: settings.timeSlots.start,
+      end: settings.timeSlots.end,
     }
+  }
+
+  return FALLBACK_DAY_SCHEDULES[dayOfWeek]
+}
+
+const getBusinessSlotsForDay = (dayOfWeek: number, settings: Settings | null) => {
+  const daySchedule = getDaySchedule(dayOfWeek, settings)
+  if (!daySchedule?.enabled) return []
+
+  const interval = Math.max(5, Number(settings?.timeSlots?.interval || BUSINESS_SLOT_MINUTES))
+  const slots: string[] = []
+  const start = toMinutes(daySchedule.start)
+  const end = toMinutes(daySchedule.end)
+  for (let minute = start; minute <= end; minute += interval) {
+    slots.push(formatMinutes(minute))
   }
   return slots
 }
 
-const isBusinessSlotForDay = (dayOfWeek: number, time: string) => {
+const isBusinessSlotForDay = (dayOfWeek: number, time: string, settings: Settings | null) => {
+  const daySchedule = getDaySchedule(dayOfWeek, settings)
+  if (!daySchedule?.enabled) return false
+
+  const interval = Math.max(5, Number(settings?.timeSlots?.interval || BUSINESS_SLOT_MINUTES))
   const minute = toMinutes(time)
-  const windows = BUSINESS_WINDOWS_BY_DAY[dayOfWeek] || []
-  return windows.some((window) => {
-    const start = toMinutes(window.start)
-    const end = toMinutes(window.end)
-    if (minute < start || minute > end) return false
-    return (minute - start) % BUSINESS_SLOT_MINUTES === 0
-  })
+  const start = toMinutes(daySchedule.start)
+  const end = toMinutes(daySchedule.end)
+  if (minute < start || minute > end) return false
+  return (minute - start) % interval === 0
 }
 
 const defaultServices = [
@@ -209,7 +216,7 @@ export default function BookingWizard() {
   // Slot Generation Logic
   const generateTimeSlots = () => {
     if (!date) return []
-    return getBusinessSlotsForDay(date.getDay())
+    return getBusinessSlotsForDay(date.getDay(), settings)
   }
 
   const isSlotAvailable = (checkDate: Date, time: string) => {
@@ -221,13 +228,14 @@ export default function BookingWizard() {
     if (settings) {
       if ((settings.closedDates || []).includes(dateStr)) return false
       if ((settings.openDates || []).includes(dateStr)) return !isPast && !hasAppointment
-      if (!settings.openingDays.includes(dayOfWeek)) return false
+      const daySchedule = getDaySchedule(dayOfWeek, settings)
+      if (!daySchedule?.enabled) return false
     } else {
       // Default fallback: closed Sun(0) and Mon(1)
       if (dayOfWeek === 0 || dayOfWeek === 1) return false
     }
 
-    if (!isBusinessSlotForDay(dayOfWeek, time)) return false
+    if (!isBusinessSlotForDay(dayOfWeek, time, settings)) return false
 
     return !isPast && !hasAppointment
   }
@@ -245,7 +253,7 @@ export default function BookingWizard() {
       // Calculate end time
       // Default duration 30 mins or from settings/service
       // Using simple logic: 30 mins default or settings interval
-      const interval = BUSINESS_SLOT_MINUTES
+      const interval = Number(settings?.timeSlots?.interval || BUSINESS_SLOT_MINUTES)
       
       const [hours, minutes] = selectedTime.split(":").map(Number)
       const endDate = new Date()
@@ -297,8 +305,11 @@ export default function BookingWizard() {
     if (settings) {
       if ((settings.closedDates || []).includes(dateStr)) return true
       if ((settings.openDates || []).includes(dateStr)) return false
+      const daySchedule = getDaySchedule(dayOfWeek, settings)
+      return !daySchedule?.enabled
     }
-    return !Object.prototype.hasOwnProperty.call(BUSINESS_WINDOWS_BY_DAY, dayOfWeek)
+    const fallback = FALLBACK_DAY_SCHEDULES[dayOfWeek]
+    return !fallback?.enabled
   }
 
   // Render Step 1: Selection

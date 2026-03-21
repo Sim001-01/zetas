@@ -15,7 +15,7 @@ import {
   deleteAppointmentRemote,
 } from "@/lib/appointments"
 import { fetchSettings, type Settings } from "@/lib/settings"
-import AdminSettings from "@/components/admin-settings"
+import Link from "next/link"
 import {
   fetchServicesRemote,
   createServiceRemote,
@@ -60,26 +60,14 @@ const buildSlotDate = (date: string, time: string) => {
 
 const BUSINESS_SLOT_MINUTES = 15
 
-const BUSINESS_WINDOWS_BY_DAY: Record<number, Array<{ start: string; end: string }>> = {
-  2: [ // Tuesday
-    { start: "09:00", end: "12:45" },
-    { start: "15:30", end: "20:15" },
-  ],
-  3: [ // Wednesday
-    { start: "09:00", end: "12:45" },
-    { start: "15:30", end: "20:15" },
-  ],
-  4: [ // Thursday
-    { start: "09:00", end: "12:45" },
-    { start: "15:30", end: "20:15" },
-  ],
-  5: [ // Friday
-    { start: "09:00", end: "13:00" },
-    { start: "15:00", end: "20:15" },
-  ],
-  6: [ // Saturday
-    { start: "08:30", end: "20:00" },
-  ],
+const FALLBACK_DAY_SCHEDULES: Record<number, { enabled: boolean; start: string; end: string }> = {
+  0: { enabled: false, start: "09:00", end: "20:00" },
+  1: { enabled: false, start: "09:00", end: "20:00" },
+  2: { enabled: true, start: "09:00", end: "20:15" },
+  3: { enabled: true, start: "09:00", end: "20:15" },
+  4: { enabled: true, start: "09:00", end: "20:15" },
+  5: { enabled: true, start: "09:00", end: "20:15" },
+  6: { enabled: true, start: "08:30", end: "20:00" },
 }
 
 const toMinutes = (time: string) => {
@@ -93,28 +81,41 @@ const formatMinutes = (value: number) => {
   return `${hh}:${mm}`
 }
 
-const getBusinessSlotsForDay = (dayOfWeek: number) => {
-  const windows = BUSINESS_WINDOWS_BY_DAY[dayOfWeek] || []
-  const slots: string[] = []
-  for (const window of windows) {
-    const start = toMinutes(window.start)
-    const end = toMinutes(window.end)
-    for (let minute = start; minute <= end; minute += BUSINESS_SLOT_MINUTES) {
-      slots.push(formatMinutes(minute))
+const getDaySchedule = (dayOfWeek: number, settings: Settings | null) => {
+  const fromSettings = settings?.daySchedules?.[dayOfWeek.toString()]
+  if (fromSettings) return fromSettings
+  if (settings) {
+    return {
+      enabled: settings.openingDays.includes(dayOfWeek),
+      start: settings.timeSlots.start,
+      end: settings.timeSlots.end,
     }
+  }
+  return FALLBACK_DAY_SCHEDULES[dayOfWeek]
+}
+
+const getBusinessSlotsForDay = (dayOfWeek: number, settings: Settings | null) => {
+  const daySchedule = getDaySchedule(dayOfWeek, settings)
+  if (!daySchedule?.enabled) return []
+  const interval = Math.max(5, Number(settings?.timeSlots?.interval || BUSINESS_SLOT_MINUTES))
+  const slots: string[] = []
+  const start = toMinutes(daySchedule.start)
+  const end = toMinutes(daySchedule.end)
+  for (let minute = start; minute <= end; minute += interval) {
+    slots.push(formatMinutes(minute))
   }
   return slots
 }
 
-const isBusinessSlotForDay = (dayOfWeek: number, time: string) => {
+const isBusinessSlotForDay = (dayOfWeek: number, time: string, settings: Settings | null) => {
+  const daySchedule = getDaySchedule(dayOfWeek, settings)
+  if (!daySchedule?.enabled) return false
+  const interval = Math.max(5, Number(settings?.timeSlots?.interval || BUSINESS_SLOT_MINUTES))
   const minute = toMinutes(time)
-  const windows = BUSINESS_WINDOWS_BY_DAY[dayOfWeek] || []
-  return windows.some((window) => {
-    const start = toMinutes(window.start)
-    const end = toMinutes(window.end)
-    if (minute < start || minute > end) return false
-    return (minute - start) % BUSINESS_SLOT_MINUTES === 0
-  })
+  const start = toMinutes(daySchedule.start)
+  const end = toMinutes(daySchedule.end)
+  if (minute < start || minute > end) return false
+  return (minute - start) % interval === 0
 }
 
 const normalizeAppointmentsList = (appointments: Appointment[] = []) => {
@@ -166,7 +167,6 @@ export default function AdminCalendar() {
   const [selectedSlot, setSelectedSlot] = useState<{ date: string; time: string } | null>(null)
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null)
   const [settings, setSettings] = useState<Settings | null>(null)
-  const [showSettings, setShowSettings] = useState(false)
 
   const defaultServiceOptions = [
     "Taglio Capelli",
@@ -267,11 +267,11 @@ export default function AdminCalendar() {
   const timeSlots = useMemo(() => {
     // Use global union of configured business windows in the weekly grid.
     const merged = new Set<string>()
-    Object.keys(BUSINESS_WINDOWS_BY_DAY).forEach((key) => {
-      getBusinessSlotsForDay(Number(key)).forEach((slot) => merged.add(slot))
-    })
+    for (let day = 0; day <= 6; day += 1) {
+      getBusinessSlotsForDay(day, settings).forEach((slot) => merged.add(slot))
+    }
     return Array.from(merged).sort((a, b) => a.localeCompare(b))
-  }, [])
+  }, [settings])
 
   const [serviceOptions, setServiceOptions] = useState<string[]>(defaultServiceOptions)
   const [servicesList, setServicesList] = useState<Service[]>([])
@@ -348,7 +348,7 @@ export default function AdminCalendar() {
 
   const handleSlotClick = (date: Date, time: string) => {
     const existing = getAppointmentForSlot(date, time)
-    if (!existing && !isBusinessSlotForDay(date.getDay(), time)) {
+    if (!existing && !isBusinessSlotForDay(date.getDay(), time, settings)) {
       return
     }
     if (existing) {
@@ -665,10 +665,10 @@ export default function AdminCalendar() {
             <button onClick={() => setShowServicesModal(true)} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors">
               Gestisci Servizi
             </button>
-            <button onClick={() => setShowSettings(true)} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors flex items-center gap-2">
+            <Link href="/admin/impostazioni" className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors flex items-center gap-2">
               <SettingsIcon className="h-4 w-4" />
               Impostazioni
-            </button>
+            </Link>
           </div>
         </div>
 
@@ -998,7 +998,7 @@ export default function AdminCalendar() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Email</label>
+                <label className="block text-sm font-medium mb-2">Email (opzionale)</label>
                 <input
                   type="email"
                   value={formData.clientEmail}
@@ -1008,10 +1008,9 @@ export default function AdminCalendar() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Telefono</label>
+                <label className="block text-sm font-medium mb-2">Telefono (opzionale)</label>
                 <input
                   type="tel"
-                  required
                   value={formData.clientPhone}
                   onChange={(e) => setFormData({ ...formData, clientPhone: e.target.value })}
                   className="w-full bg-black border border-zinc-700 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
@@ -1106,8 +1105,6 @@ export default function AdminCalendar() {
           </div>
         </div>
       )}
-
-      {showSettings && <AdminSettings onClose={() => setShowSettings(false)} />}
     </div>
   )
 }

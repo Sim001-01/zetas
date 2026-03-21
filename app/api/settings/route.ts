@@ -10,20 +10,88 @@ const defaultSettings = {
     end: "20:30",
     interval: 30,
   },
+  daySchedules: {
+    "0": { enabled: false, start: "09:00", end: "20:00" },
+    "1": { enabled: false, start: "09:00", end: "20:00" },
+    "2": { enabled: true, start: "09:00", end: "20:15" },
+    "3": { enabled: true, start: "09:00", end: "20:15" },
+    "4": { enabled: true, start: "09:00", end: "20:15" },
+    "5": { enabled: true, start: "09:00", end: "20:15" },
+    "6": { enabled: true, start: "08:30", end: "20:00" },
+  },
   closedDays: [0, 1], // Legacy/unused for now in new logic but kept for safety
   openDates: [], // YYYY-MM-DD overrides to force open
   closedDates: [], // YYYY-MM-DD overrides to force closed
+}
+
+const clampInterval = (value: any) => {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return defaultSettings.timeSlots.interval
+  if (numeric < 5) return 5
+  if (numeric > 120) return 120
+  return Math.round(numeric)
+}
+
+const normalizeTimeString = (value: any, fallback: string) => {
+  if (typeof value !== 'string') return fallback
+  const trimmed = value.trim()
+  if (!/^\d{2}:\d{2}$/.test(trimmed)) return fallback
+  return trimmed
+}
+
+const buildLegacyFallbackSchedules = (input: any) => {
+  const openingDays = Array.isArray(input?.openingDays) ? input.openingDays : defaultSettings.openingDays
+  const start = normalizeTimeString(input?.timeSlots?.start, defaultSettings.timeSlots.start)
+  const end = normalizeTimeString(input?.timeSlots?.end, defaultSettings.timeSlots.end)
+  const result: Record<string, { enabled: boolean; start: string; end: string }> = {}
+  for (let day = 0; day <= 6; day += 1) {
+    result[day.toString()] = {
+      enabled: openingDays.includes(day),
+      start,
+      end,
+    }
+  }
+  return result
+}
+
+const normalizeDaySchedules = (input: any) => {
+  const fallback = buildLegacyFallbackSchedules(input)
+  const incoming = input?.daySchedules ?? input?.timeSlots?.daySchedules
+  if (!incoming || typeof incoming !== 'object') {
+    return fallback
+  }
+
+  const normalized: Record<string, { enabled: boolean; start: string; end: string }> = {}
+  for (let day = 0; day <= 6; day += 1) {
+    const key = day.toString()
+    const fallbackDay = fallback[key] || defaultSettings.daySchedules[key as keyof typeof defaultSettings.daySchedules]
+    const incomingDay = incoming[key] || incoming[day]
+    normalized[key] = {
+      enabled: typeof incomingDay?.enabled === 'boolean' ? incomingDay.enabled : fallbackDay.enabled,
+      start: normalizeTimeString(incomingDay?.start, fallbackDay.start),
+      end: normalizeTimeString(incomingDay?.end, fallbackDay.end),
+    }
+  }
+  return normalized
 }
 
 function normalizeSettings(input: any) {
   const timeSlots = {
     ...defaultSettings.timeSlots,
     ...(input?.timeSlots ?? {}),
+    interval: clampInterval(input?.timeSlots?.interval ?? defaultSettings.timeSlots.interval),
   }
+
+  const daySchedules = normalizeDaySchedules(input)
+  const openingDays = Object.entries(daySchedules)
+    .filter(([, day]) => day.enabled)
+    .map(([day]) => Number(day))
+    .sort((a, b) => a - b)
 
   return {
     timeSlots,
-    openingDays: Array.isArray(input?.openingDays) ? input.openingDays : defaultSettings.openingDays,
+    daySchedules,
+    openingDays,
     closedDays: Array.isArray(input?.closedDays) ? input.closedDays : defaultSettings.closedDays,
     openDates: Array.isArray(input?.openDates) ? input.openDates : defaultSettings.openDates,
     closedDates: Array.isArray(input?.closedDates) ? input.closedDates : defaultSettings.closedDates,
@@ -32,8 +100,23 @@ function normalizeSettings(input: any) {
 
 const SETTINGS_ID = 1
 
+const ensureSettingsTable = async () => {
+  await query(
+    `CREATE TABLE IF NOT EXISTS settings (
+      id INT NOT NULL PRIMARY KEY,
+      opening_days JSON NOT NULL,
+      time_slots JSON NOT NULL,
+      closed_days JSON NOT NULL,
+      open_dates JSON NOT NULL,
+      closed_dates JSON NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  )
+}
+
 export async function GET() {
   try {
+    await ensureSettingsTable()
     const rows = await query<any>(
       `SELECT id, opening_days, time_slots, closed_days, open_dates, closed_dates
        FROM settings
@@ -49,7 +132,7 @@ export async function GET() {
         [
           SETTINGS_ID,
           JSON.stringify(defaultSettings.openingDays),
-          JSON.stringify(defaultSettings.timeSlots),
+          JSON.stringify({ ...defaultSettings.timeSlots, daySchedules: defaultSettings.daySchedules }),
           JSON.stringify(defaultSettings.closedDays),
           JSON.stringify(defaultSettings.openDates),
           JSON.stringify(defaultSettings.closedDates),
@@ -76,6 +159,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    await ensureSettingsTable()
     const body = await request.json()
     const normalized = normalizeSettings(body)
     await query(
@@ -90,7 +174,7 @@ export async function POST(request: Request) {
       [
         SETTINGS_ID,
         JSON.stringify(normalized.openingDays),
-        JSON.stringify(normalized.timeSlots),
+        JSON.stringify({ ...normalized.timeSlots, daySchedules: normalized.daySchedules }),
         JSON.stringify(normalized.closedDays),
         JSON.stringify(normalized.openDates),
         JSON.stringify(normalized.closedDates),

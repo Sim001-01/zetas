@@ -36,11 +36,21 @@ const serializeService = (service: any) => ({
 })
 
 export async function GET() {
-  const rows = await query<any>(
-    `SELECT id, name, duration_minutes, description, price, img, created_at
-     FROM services
-     ORDER BY name ASC`,
-  )
+  let rows: any[] = []
+  try {
+    rows = await query<any>(
+      `SELECT id, name, duration_minutes, description, price, img, created_at
+       FROM services
+       ORDER BY name ASC`,
+    )
+  } catch (error: any) {
+    if (error?.code !== 'ER_BAD_FIELD_ERROR') throw error
+    rows = await query<any>(
+      `SELECT id, name, duration_minutes, description, price, NULL AS img, created_at
+       FROM services
+       ORDER BY name ASC`,
+    )
+  }
   return NextResponse.json(rows.map(serializeService))
 }
 
@@ -58,19 +68,37 @@ export async function POST(request: Request) {
   }
 
   try {
-    await query(
-      `INSERT INTO services (name, duration_minutes, description, price, img)
-       VALUES (?, ?, ?, ?, ?)`,
-      [trimmedName, durationMinutes ?? duration_minutes ?? 30, rest?.description ?? null, priceValue, imageValue],
-    )
-    const rows = await query<any>(
-      `SELECT id, name, duration_minutes, description, price, img, created_at
-       FROM services
-       WHERE name = ?
-       ORDER BY id DESC
-       LIMIT 1`,
-      [trimmedName],
-    )
+    let rows: any[] = []
+    try {
+      await query(
+        `INSERT INTO services (name, duration_minutes, description, price, img)
+         VALUES (?, ?, ?, ?, ?)`,
+        [trimmedName, durationMinutes ?? duration_minutes ?? 30, rest?.description ?? null, priceValue, imageValue],
+      )
+      rows = await query<any>(
+        `SELECT id, name, duration_minutes, description, price, img, created_at
+         FROM services
+         WHERE name = ?
+         ORDER BY id DESC
+         LIMIT 1`,
+        [trimmedName],
+      )
+    } catch (error: any) {
+      if (error?.code !== 'ER_BAD_FIELD_ERROR') throw error
+      await query(
+        `INSERT INTO services (name, duration_minutes, description, price)
+         VALUES (?, ?, ?, ?)`,
+        [trimmedName, durationMinutes ?? duration_minutes ?? 30, rest?.description ?? null, priceValue],
+      )
+      rows = await query<any>(
+        `SELECT id, name, duration_minutes, description, price, NULL AS img, created_at
+         FROM services
+         WHERE name = ?
+         ORDER BY id DESC
+         LIMIT 1`,
+        [trimmedName],
+      )
+    }
     return NextResponse.json(serializeService(rows[0]), { status: 201 })
   } catch (error: any) {
     if (error?.code === 'ER_DUP_ENTRY') {
