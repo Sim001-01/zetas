@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS admins (
 -- Optional: seed the services table with common services (INSERT IGNORE avoids duplicates)
 INSERT IGNORE INTO services (name, duration_minutes, description, price)
 VALUES
-	('Taglio Capelli', 30, 'Taglio tradizionale', 25.00),
+	('Taglio Capelli', 30, 'Taglio tradizionale', 10.00),
 	('Barba', 20, 'Rifinitura barba', 15.00),
 	('Taglio + Barba', 50, 'Pacchetto completo', 35.00);
 
