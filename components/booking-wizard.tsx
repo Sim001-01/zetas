@@ -227,25 +227,8 @@ export default function BookingWizard() {
     mountedRef.current = true
     void loadData()
 
-    const refreshIfIdle = () => {
-      if (submittingRef.current) return
-      if (stepRef.current !== 1) return
-      void loadData()
-    }
-
-    const interval = setInterval(refreshIfIdle, 5000)
-
-    const handleVisibilitySync = () => {
-      refreshIfIdle()
-    }
-    window.addEventListener('focus', handleVisibilitySync)
-    document.addEventListener('visibilitychange', handleVisibilitySync)
-
     return () => {
       mountedRef.current = false
-      clearInterval(interval)
-      window.removeEventListener('focus', handleVisibilitySync)
-      document.removeEventListener('visibilitychange', handleVisibilitySync)
     }
   }, [loadData])
 
