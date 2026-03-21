@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Calendar } from "@/components/ui/calendar"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -40,6 +39,23 @@ const formatMinutes = (value: number) => {
   const hh = Math.floor(value / 60).toString().padStart(2, "0")
   const mm = (value % 60).toString().padStart(2, "0")
   return `${hh}:${mm}`
+}
+
+const dateToInputValue = (date?: Date) => {
+  if (!date) return ""
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, "0")
+  const d = String(date.getDate()).padStart(2, "0")
+  return `${y}-${m}-${d}`
+}
+
+const inputValueToDate = (value: string) => {
+  if (!value) return undefined
+  const [y, m, d] = value.split("-").map(Number)
+  if (!y || !m || !d) return undefined
+  const parsed = new Date(y, m - 1, d)
+  if (Number.isNaN(parsed.getTime())) return undefined
+  return parsed
 }
 
 const normalizeSchedule = (schedule: any, fallbackStart: string, fallbackEnd: string): ScheduleConfig => {
@@ -223,13 +239,6 @@ export default function BookingWizard() {
 
     const interval = setInterval(refreshIfIdle, 5000)
 
-    const source = new EventSource('/api/appointments/stream')
-    const handleUpdate = () => {
-      refreshIfIdle()
-    }
-    source.addEventListener('update', handleUpdate)
-    source.addEventListener('ready', handleUpdate)
-
     const handleVisibilitySync = () => {
       refreshIfIdle()
     }
@@ -239,11 +248,8 @@ export default function BookingWizard() {
     return () => {
       mountedRef.current = false
       clearInterval(interval)
-      source.removeEventListener('update', handleUpdate)
-      source.removeEventListener('ready', handleUpdate)
       window.removeEventListener('focus', handleVisibilitySync)
       document.removeEventListener('visibilitychange', handleVisibilitySync)
-      source.close()
     }
   }, [loadData])
 
@@ -354,16 +360,33 @@ export default function BookingWizard() {
           
           <div className="space-y-2">
             <Label>Data</Label>
-            <div className="border rounded-md p-4 bg-background/50 backdrop-blur-sm flex justify-center">
-              <Calendar
-                mode="single"
-                selected={date}
-                onSelect={setDate}
-                locale={it}
-                disabled={(d) => d < new Date(new Date().setHours(0,0,0,0)) || isDateClosed(d)}
-                className="rounded-md border-0"
-              />
-            </div>
+            <Input
+              type="date"
+              className="bg-black/50 border-zinc-700 text-white"
+              min={dateToInputValue(new Date())}
+              value={dateToInputValue(date)}
+              onChange={(e) => {
+                const nextDate = inputValueToDate(e.target.value)
+                if (!nextDate) {
+                  setDate(undefined)
+                  setSelectedTime(null)
+                  return
+                }
+                const today = new Date()
+                today.setHours(0, 0, 0, 0)
+                if (nextDate < today || isDateClosed(nextDate)) {
+                  setSelectedTime(null)
+                  toast({
+                    title: "Data non disponibile",
+                    description: "Seleziona un giorno di apertura valido.",
+                    variant: "destructive",
+                  })
+                  return
+                }
+                setDate(nextDate)
+                setSelectedTime(null)
+              }}
+            />
           </div>
         </div>
 
